@@ -3,6 +3,8 @@ package ac.jcourse.mchat.ui;
 import java.io.IOException;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
+
+import ac.jcourse.mchat.protocol.Protocol;
 import ac.jcourse.mchat.protocol.ServerListener;
 
 public class ServerUI extends BaseChattingUI {
@@ -23,7 +25,7 @@ public class ServerUI extends BaseChattingUI {
         
         appendMessageDisplay("SERVER" + ": " + text);
         
-        listener.sendMessage(text);
+        listener.sendMessage(text, Protocol.BROADCAST_MESSAGE_UUID);
     }
 
     @Override

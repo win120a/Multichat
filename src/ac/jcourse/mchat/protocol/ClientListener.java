@@ -20,12 +20,14 @@ import ac.jcourse.mchat.protocol.handler.Handler;
 public class ClientListener implements Listener {
     private AsynchronousSocketChannel socketChannel;
     private String uuid;
+    private String name;
 
-    public ClientListener(Shell shell, Consumer<String> doInUI, byte[] address, int port) throws IOException {
-        init(shell, doInUI, address, port);
+    public ClientListener(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username) throws IOException {
+        this.name = username;
+        init(shell, doInUI, address, port, username);
     }
 
-    private void init(Shell shell, Consumer<String> doInUI, byte[] address, int port) throws IOException {
+    private void init(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username) throws IOException {
         ClientMessageHandler handler = new ClientMessageHandler();
         socketChannel = AsynchronousSocketChannel.open();
 
@@ -39,7 +41,8 @@ public class ClientListener implements Listener {
 
             @Override
             public void completed(Void result, String attachment) {
-                final ByteBuffer bb = ByteBuffer.wrap((CONNECTING_GREET + attachment).getBytes(StandardCharsets.UTF_8));
+                String greetMessage = CONNECTING_GREET_LEFT_HALF + attachment + CONNECTING_GREET_MIDDLE_HALF + username;
+                final ByteBuffer bb = ByteBuffer.wrap(greetMessage.getBytes());
 
                 try {
                     socketChannel.write(bb).get();
@@ -48,8 +51,10 @@ public class ClientListener implements Listener {
                 }
 
                 shell.getDisplay().syncExec(() -> {
-                    doInUI.accept("Connected to Server, UUID: " + uuid);
+                    doInUI.accept("Connected to Server, UserName: " + username + ", UUID: " + uuid);
                 });
+                
+                
 
                 socketChannel.read(bb, shell.getDisplay(), new CompletionHandler<Integer, Display>() {
 
@@ -99,10 +104,12 @@ public class ClientListener implements Listener {
 
     private class ClientMessageHandler implements Handler {
         @Override
-        public String handleMessage(String message, AsynchronousSocketChannel channel) {
+        public String handleMessage(String message, AsynchronousSocketChannel socketChannel) {
             if (message.startsWith(Protocol.MESSAGE_HEADER_LEFT_HALF)) {
-                message = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "").replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, ": ");
-            } else if (message.startsWith(Protocol.CONNECTING_GREET)) {
+                message = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
+                            .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "").replace(Protocol.MESSAGE_HEADER_MIDDLE_HALF, ": ");
+                
+            } else if (message.startsWith(Protocol.CONNECTING_GREET_LEFT_HALF)) {
                 return "";
             } else if (message.startsWith(Protocol.DISCONNECT)) {
                 try {
@@ -122,11 +129,13 @@ public class ClientListener implements Listener {
         return uuid;
     }
 
+    @Override
     public boolean isConnected() {
         return socketChannel != null && socketChannel.isOpen();
     }
 
-    public void sendCommunicationData(String text) {
+    @Override
+    public void sendCommunicationData(String text, String uuid) {
         final ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
 
         try {
@@ -135,14 +144,19 @@ public class ClientListener implements Listener {
             e.printStackTrace();
         }
     }
-
+    
     public void sendMessage(String message) {
-        sendCommunicationData(MESSAGE_HEADER_LEFT_HALF + uuid + MESSAGE_HEADER_RIGHT_HALF + message);
+        sendMessage(message, uuid);
+    }
+
+    @Override
+    public void sendMessage(String message, String uuidValue) {
+        sendCommunicationData(MESSAGE_HEADER_LEFT_HALF + uuidValue + MESSAGE_HEADER_MIDDLE_HALF + MESSAGE_HEADER_RIGHT_HALF + message, uuidValue);
     }
 
     public void disconnect() throws IOException {
         if (isConnected()) {
-            sendCommunicationData(DISCONNECT + uuid);
+            sendCommunicationData(DISCONNECT + uuid, uuid);
             socketChannel.close();
             socketChannel = null;
         }

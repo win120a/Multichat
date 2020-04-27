@@ -1,13 +1,7 @@
 package ac.jcourse.mchat.ui;
 
-import java.awt.Component;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ExecutionException;
 
-import javax.swing.Icon;
 import javax.swing.JOptionPane;
 
 import org.eclipse.swt.widgets.Display;
@@ -15,16 +9,12 @@ import org.eclipse.swt.widgets.Display;
 import ac.jcourse.mchat.protocol.ClientListener;
 import ac.jcourse.mchat.protocol.Protocol;
 
-import static ac.jcourse.mchat.protocol.Protocol.*;
-
 public class ClientUI extends BaseChattingUI {
-    
-    private AsynchronousSocketChannel asc;
     private String uuid;
     private ClientListener listener;
     
-    public void initListener(byte[] ipAddress, int port) throws IOException {
-        listener = new ClientListener(this, (message) -> appendMessageDisplay(message), ipAddress, port);
+    public void initListener(byte[] ipAddress, int port, String userName) throws IOException {
+        listener = new ClientListener(this, (message) -> appendMessageDisplay(message), ipAddress, port, userName);
         uuid = listener.getUuid();
     }
 
@@ -96,7 +86,7 @@ public class ClientUI extends BaseChattingUI {
         
         ui.open();
         
-        ui.initListener(getServerIPAddress(), getPort());
+        ui.initListener(getServerIPAddress(), getPort(), inputDialog("请输入用户名", "必须输入用户名！"));
 
         Display d = ui.getDisplay();
         

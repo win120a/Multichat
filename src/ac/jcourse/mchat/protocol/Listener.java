@@ -1,7 +1,15 @@
 package ac.jcourse.mchat.protocol;
 
+/**
+ * Interface that represents a connection listener.
+ * 
+ * @author Andy Cheung
+ * @date 2020/4/26
+ */
 public interface Listener extends Protocol, AutoCloseable {
-    void sendCommunicationData(String text);
+    void sendMessage(String message, String uuid);
+
+    void sendCommunicationData(String text, String uuid);
     
-    void sendMessage(String message);
+    boolean isConnected();
 }
