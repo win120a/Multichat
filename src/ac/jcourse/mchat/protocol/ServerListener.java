@@ -2,14 +2,19 @@ package ac.jcourse.mchat.protocol;
 
 import java.io.IOException;
 import java.lang.ref.SoftReference;
+import java.net.DatagramPacket;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
+import java.net.SocketOption;
+import java.net.SocketOptions;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,10 +34,10 @@ import ac.jcourse.mchat.protocol.handler.Handler;
 public class ServerListener implements Listener {
 
     private AsynchronousServerSocketChannel serverSocketChannel = null;
-    private MulticastSocket multicastSocket;
+//    private MulticastSocket multicastSocket;
     
     private ExecutorService threadPool;
-    private Map<String, User> userProfile = new ConcurrentHashMap<>();
+    private Map<String, User> userProfile = new ConcurrentHashMap<>(16);
     
     private Shell shell;
     private Consumer<String> doInUI;
@@ -76,7 +81,7 @@ public class ServerListener implements Listener {
 
         AsynchronousChannelGroup acg = AsynchronousChannelGroup.withThreadPool(threadPool);
         
-        multicastSocket = new MulticastSocket(Protocol.SERVER_MULTICAST_PORT);
+        // multicastSocket = new MulticastSocket(Protocol.SERVER_MULTICAST_PORT);
         
 
         serverSocketChannel = AsynchronousServerSocketChannel.open(acg);
@@ -169,19 +174,30 @@ public class ServerListener implements Listener {
                 String uuid = data[0];
                 String m = data[1];
                 
-                ByteBuffer bb = ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
+                int messageLength = message.length();
+                String nameOnlyMessage = message.replace(uuid, userProfile.get(uuid).getName());
+                
+                ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
                 
                 for (User u : userProfile.values()) {
                     try {
                         if (!uuid.equals(u.getUuid())) {
                             bb.rewind();
-                            u.getChannel().write(bb).get();
+                            int bytes = u.getChannel().write(bb).get();
+                            System.out.println("Message Length: " + messageLength + "  Result: " + bytes);
                         }
                     } catch (InterruptedException | ExecutionException e) {
                         // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
                 }
+                
+//                try {
+//                    multicastSocket.send(new DatagramPacket(bb.array(), bb.array().length));
+//                } catch (IOException e) {
+//                    // TODO Auto-generated catch block
+//                    e.printStackTrace();
+//                }
                 
                 message = userProfile.get(uuid).getName() + ": " + m;
             }
@@ -224,7 +240,8 @@ public class ServerListener implements Listener {
 
     @Override
     public void sendMessage(String message, String UUID) {
-        sendCommunicationData(MESSAGE_HEADER_LEFT_HALF + Protocol.BROADCAST_MESSAGE_UUID + MESSAGE_HEADER_RIGHT_HALF + message, UUID);
+        sendCommunicationData(MESSAGE_HEADER_LEFT_HALF + Protocol.BROADCAST_MESSAGE_UUID +
+                                  MESSAGE_HEADER_MIDDLE_HALF + MESSAGE_HEADER_RIGHT_HALF + message, UUID);
     }
 
     public void disconnect(String uuid) throws IOException {

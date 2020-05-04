@@ -5,6 +5,8 @@ package ac.jcourse.mchat.protocol;
  * 
  * @author Andy Cheung
  * @date 2020/4/26
+ * @see Protocol
+ * @see AutoCloseable
  */
 public interface Listener extends Protocol, AutoCloseable {
     void sendMessage(String message, String uuid);

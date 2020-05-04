@@ -1,6 +1,7 @@
 package ac.jcourse.mchat.ui;
 
 import java.io.IOException;
+import java.util.function.Predicate;
 
 import javax.swing.JOptionPane;
 
@@ -42,13 +43,17 @@ public class ClientUI extends BaseChattingUI {
     }
     
     private static String inputDialog(String defaultString, String askMessage, String errorMessage) {
+        return inputDialog(defaultString, askMessage, errorMessage, (a) -> true);
+    }
+    
+    private static String inputDialog(String defaultString, String askMessage, String errorMessage, Predicate<String> filter) {
         String response;
         int counter = 0;
         
         do {
             response = (String) JOptionPane.showInputDialog(null, askMessage, "Input", JOptionPane.QUESTION_MESSAGE, null, null, defaultString);
             counter++;
-        } while ((response == null || response.isBlank()) && counter <= 5);
+        } while ((response == null || response.isBlank() || !filter.test(response)) && counter <= 5);
         
         if (counter > 5) {
             JOptionPane.showMessageDialog(null, errorMessage, "ERROR", JOptionPane.ERROR_MESSAGE);
@@ -60,23 +65,26 @@ public class ClientUI extends BaseChattingUI {
     
     private static byte[] getServerIPAddress() {
 
-        String ipAddress = inputDialog("127.0.0.1", "请输入服务器IPv4地址：", "必须输入IP地址！");
+        String ipAddress = inputDialog("127.0.0.1", "请输入服务器IPv4地址：", "必须输入IP地址！", (s) -> s.matches("\\d.+\\d.+\\d.+\\d+"));
 
         String[] address = ipAddress.split("[.]");
         
         byte[] addressByteArray = new byte[4];
         
         for (int i = 0; i < address.length; i++) {
-            addressByteArray[i] = Byte.parseByte(address[i]);
+            addressByteArray[i] = (byte) Integer.parseInt(address[i]);
         }
         
         return addressByteArray;
     }
     
     private static int getPort() {
-        String port = inputDialog(Integer.toString(Protocol.CLIENT_PORT), "请输入客户端端口：", "必须输入端口！");
+        String portString = inputDialog(Integer.toString(Protocol.CLIENT_PORT), "请输入客户端端口：", "必须输入端口！", (s) -> {
+            int port = Integer.parseInt(s);
+            return s.matches("\\d+") && port > 0 && port <= 65535;
+        });
         
-        return Integer.parseInt(port);
+        return Integer.parseInt(portString);
     }
 
     public static void main(String[] args) throws IOException {
