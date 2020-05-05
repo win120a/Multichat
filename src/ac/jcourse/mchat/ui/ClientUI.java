@@ -1,9 +1,8 @@
 package ac.jcourse.mchat.ui;
 
-import java.io.IOException;
-import java.util.function.Predicate;
+import static ac.jcourse.mchat.ui.CommonDialogs.inputDialog;
 
-import javax.swing.JOptionPane;
+import java.io.IOException;
 
 import org.eclipse.swt.widgets.Display;
 
@@ -11,18 +10,16 @@ import ac.jcourse.mchat.protocol.ClientListener;
 import ac.jcourse.mchat.protocol.Protocol;
 
 public class ClientUI extends BaseChattingUI {
-    private String uuid;
     private ClientListener listener;
     
     public void initListener(byte[] ipAddress, int port, String userName) throws IOException {
         listener = new ClientListener(this, (message) -> appendMessageDisplay(message), ipAddress, port, userName);
-        uuid = listener.getUuid();
     }
 
     @Override
     protected void handleSendMessage(String text) {
         listener.sendMessage(text);
-        appendMessageDisplay(uuid + ": " + text);
+        appendMessageDisplay(listener.getUserName() + ": " + text);
     }
 
     @Override
@@ -36,31 +33,6 @@ public class ClientUI extends BaseChattingUI {
         
         send.setEnabled(false);
         disconnect.setEnabled(false);
-    }
-    
-    private static String inputDialog(String askMessage, String errorMessage) {
-        return inputDialog(null, askMessage, errorMessage);
-    }
-    
-    private static String inputDialog(String defaultString, String askMessage, String errorMessage) {
-        return inputDialog(defaultString, askMessage, errorMessage, (a) -> true);
-    }
-    
-    private static String inputDialog(String defaultString, String askMessage, String errorMessage, Predicate<String> filter) {
-        String response;
-        int counter = 0;
-        
-        do {
-            response = (String) JOptionPane.showInputDialog(null, askMessage, "Input", JOptionPane.QUESTION_MESSAGE, null, null, defaultString);
-            counter++;
-        } while ((response == null || response.isBlank() || !filter.test(response)) && counter <= 5);
-        
-        if (counter > 5) {
-            JOptionPane.showMessageDialog(null, errorMessage, "ERROR", JOptionPane.ERROR_MESSAGE);
-            System.exit(-1);
-        }
-        
-        return response;
     }
     
     private static byte[] getServerIPAddress() {

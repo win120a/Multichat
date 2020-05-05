@@ -30,5 +30,8 @@ public interface Protocol {
     
     String BROADCAST_MESSAGE_UUID = "SERVER";
     
-    String DENIED = ">>> DENIED <<<";
+    // <<< DUP ? >>> (Name)
+    String CHECK_DUPLICATE_REQUEST_HEADER = "<<< DUP ? >>> ";
+    String USER_NAME_DUPLICATED = ">>> DUPLICATED <<< ";
+    String USER_NAME_NOT_EXIST = "<<< Clear >>>";
 }

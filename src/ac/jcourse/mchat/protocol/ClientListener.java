@@ -3,11 +3,9 @@ package ac.jcourse.mchat.protocol;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
-import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -19,9 +17,12 @@ import org.eclipse.swt.widgets.Shell;
 
 import ac.jcourse.mchat.protocol.handler.Handler;
 
+/**
+ * Listener class of Client.
+ * @author Andy Cheung
+ */
 public class ClientListener implements Listener {
     private AsynchronousSocketChannel socketChannel;
-    // private DatagramChannel datagramChannel;
     private String uuid;
     private String name;
 
@@ -39,35 +40,6 @@ public class ClientListener implements Listener {
         InetAddress ia = InetAddress.getByAddress(address);
 
         uuid = UUID.randomUUID().toString();
-        
-        // datagramChannel.bind(new InetSocketAddress(Protocol.CLIENT_MULTICAST_PORT));  // A random port?
-        
-        // datagramChannel = DatagramChannel.open();
-        
-//        datagramChannel.connect(new InetSocketAddress(InetAddress.getByAddress(Protocol.MULTICAST_IP), Protocol.SERVER_MULTICAST_PORT));
-//        
-//        /* Multicast Socket Reading Thread */
-//        new Thread(() -> {
-//            ByteBuffer bb = ByteBuffer.allocate(1024);
-//            
-//            while (true) {
-//
-//                try {
-//                    datagramChannel.read(bb);
-//                    
-//                    StringBuilder builder = new StringBuilder();
-//                    
-//                    while (bb.hasRemaining()) {
-//                        builder.append(StandardCharsets.UTF_8.decode(bb));
-//                    }
-//                    
-//                    handler.handleMessage(builder.toString(), null);
-//                } catch (IOException e) {
-//                    // TODO Auto-generated catch block
-//                    e.printStackTrace();
-//                }
-//            }
-//        }).start();
 
         socketChannel.connect(new InetSocketAddress(ia, SERVER_PORT), uuid, new CompletionHandler<Void, String>() {
 
@@ -127,8 +99,13 @@ public class ClientListener implements Listener {
 
             @Override
             public void failed(Throwable exc, String attachment) {
-                // TODO Auto-generated method stub
-
+                exc.printStackTrace();
+                
+                if (shell != null && !shell.isDisposed()) {
+                    shell.getDisplay().syncExec(() -> {
+                        MessageDialog.openError(shell, "出错", "客户机读取出错：" + exc.getMessage());
+                    });
+                }
             }
         });
     }
@@ -158,6 +135,10 @@ public class ClientListener implements Listener {
 
     public String getUuid() {
         return uuid;
+    }
+
+    public String getUserName() {
+        return name;
     }
 
     @Override

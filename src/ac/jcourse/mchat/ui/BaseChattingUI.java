@@ -68,6 +68,10 @@ public abstract class BaseChattingUI extends Shell {
         send.addSelectionListener(new SelectionAdapter() {
             @Override
             public void widgetSelected(SelectionEvent e) {
+                if (messageToSend.getText().isBlank()) {
+                    return;
+                }
+                
                 handleSendMessage(messageToSend.getText());
                 messageToSend.setText("");
             }
