@@ -1,6 +1,6 @@
 package ac.jcourse.mchat.ui;
 
-import static ac.jcourse.mchat.ui.CommonDialogs.inputDialog;
+import static ac.jcourse.mchat.ui.CommonDialogs.*;
 
 import java.io.IOException;
 
@@ -13,7 +13,12 @@ public class ClientUI extends BaseChattingUI {
     private ClientListener listener;
     
     public void initListener(byte[] ipAddress, int port, String userName) throws IOException {
-        listener = new ClientListener(this, (message) -> appendMessageDisplay(message), ipAddress, port, userName);
+        if (!ClientListener.checkNameDuplicates(ipAddress, userName)) {
+            listener = new ClientListener(this, (message) -> appendMessageDisplay(message), ipAddress, port, userName);
+        } else {
+            errorDialog("用户名重复了！");
+            initListener(ipAddress, port, getUserName());
+        }
     }
 
     @Override
@@ -51,12 +56,16 @@ public class ClientUI extends BaseChattingUI {
     }
     
     private static int getPort() {
-        String portString = inputDialog(Integer.toString(Protocol.CLIENT_PORT), "请输入客户端端口：", "必须输入端口！", (s) -> {
+        String portString = inputDialog(Integer.toString(Protocol.CLIENT_DEFAULT_PORT), "请输入客户端端口：", "必须输入端口！", (s) -> {
             int port = Integer.parseInt(s);
             return s.matches("\\d+") && port > 0 && port <= 65535;
         });
         
         return Integer.parseInt(portString);
+    }
+    
+    private static String getUserName() {
+        return inputDialog("请输入用户名", "必须输入用户名！");
     }
 
     public static void main(String[] args) throws IOException {
@@ -66,7 +75,7 @@ public class ClientUI extends BaseChattingUI {
         
         ui.open();
         
-        ui.initListener(getServerIPAddress(), getPort(), inputDialog("请输入用户名", "必须输入用户名！"));
+        ui.initListener(getServerIPAddress(), getPort(), getUserName());
 
         Display d = ui.getDisplay();
         

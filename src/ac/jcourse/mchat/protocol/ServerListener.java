@@ -3,13 +3,18 @@ package ac.jcourse.mchat.protocol;
 import java.io.IOException;
 import java.lang.ref.SoftReference;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -28,27 +33,30 @@ import ac.jcourse.mchat.protocol.handler.Handler;
 
 /**
  * Listener class of Chatting Server.
+ * 
  * @author Andy Cheung
  */
 public class ServerListener implements Listener {
 
     private AsynchronousServerSocketChannel serverSocketChannel = null;
-    
+
     private ExecutorService threadPool;
     private Map<String, User> userProfile = new ConcurrentHashMap<>(16);
-    
+    private Set<String> names = Collections.synchronizedSet(new HashSet<>());
+
     private Shell shell;
     private Consumer<String> doInUI;
-    
+    private DuplicateCheckerService duplicateCheckerService;
+
     private int threadNumber = 0;
 
     public ServerListener(Shell shell, Consumer<String> doInUI) throws IOException {
         this.shell = shell;
         this.doInUI = doInUI;
-        
+
         init(shell, doInUI);
     }
-    
+
     private void readMessage(ByteBuffer bb, Handler handler, Integer result, AsynchronousSocketChannel channel) {
 
         if (result != -1) {
@@ -66,8 +74,7 @@ public class ServerListener implements Listener {
             shell.getDisplay().syncExec(() -> {
                 doInUI.accept(message);
             });
-            
-            
+
             bb.clear();
         }
     }
@@ -76,25 +83,30 @@ public class ServerListener implements Listener {
         ServerMessageHandler handler = new ServerMessageHandler();
 
         BlockingQueue<Runnable> bq = new LinkedBlockingQueue<>(16);
-        
+
         ThreadFactory threadFactory = r -> {
-            threadNumber++;
-            return new Thread(r, "PoolThread - SrvListener - " + threadNumber);
+            if (!r.getClass().getName().contains("DuplicateCheckerService")) {
+                threadNumber++;
+                return new Thread(r, "PoolThread - SrvListener - " + threadNumber);
+            } else {
+                return new Thread(r, "PoolThread - DCS - " + threadNumber);
+            }
         };
 
         threadPool = new ThreadPoolExecutor(4, 16, 3000, TimeUnit.MILLISECONDS, bq, threadFactory);
+        
+        duplicateCheckerService = new DuplicateCheckerService();
+        threadPool.submit(duplicateCheckerService);
 
         AsynchronousChannelGroup acg = AsynchronousChannelGroup.withThreadPool(threadPool);
-        
+
         serverSocketChannel = AsynchronousServerSocketChannel.open(acg);
-
         serverSocketChannel.bind(new InetSocketAddress(Protocol.SERVER_PORT));
-
         serverSocketChannel.accept(this, new CompletionHandler<AsynchronousSocketChannel, Object>() {
 
             @Override
             public void completed(AsynchronousSocketChannel result, Object attachment) {
-                final ByteBuffer bb = ByteBuffer.allocate(1024);
+                final ByteBuffer bb = ByteBuffer.allocate(Protocol.BUFFER_SIZE);
 
                 /* Handle messages. */
                 result.read(bb, result, new CompletionHandler<Integer, AsynchronousSocketChannel>() {
@@ -102,7 +114,7 @@ public class ServerListener implements Listener {
                     @Override
                     public void completed(Integer result, AsynchronousSocketChannel channel) {
                         readMessage(bb, handler, result, channel);
-                        
+
                         if (channel.isOpen()) {
                             channel.read(bb, channel, this);
                         }
@@ -111,7 +123,20 @@ public class ServerListener implements Listener {
                     @Override
                     public void failed(Throwable exc, AsynchronousSocketChannel channel) {
                         exc.printStackTrace();
-                        userProfile.entrySet().removeIf((user) -> user.getValue().getChannel().equals(channel));
+                        
+                        SoftReference<User> sr = null;
+                        
+                        for (User user : userProfile.values()) {
+                            if (user.getChannel().equals(channel)) {
+                                sr = new SoftReference<>(user);
+                            }
+                        };
+                        
+                        userProfile.remove(sr.get().getUuid());
+                        names.remove(sr.get().getName());
+                        
+                        sr.clear();
+                        sr = null;
                     }
                 });
 
@@ -131,6 +156,7 @@ public class ServerListener implements Listener {
 
     /**
      * Message Handler in Server.
+     * 
      * @author Andy Cheung
      * @date 2020/4/26
      */
@@ -148,6 +174,7 @@ public class ServerListener implements Listener {
                 User userObject = new User(uuid, channel, name);
 
                 userProfile.put(uuid, userObject);
+                names.add(name);
 
                 return "Client: " + uuid + " (" + name + ") Connected.";
             } else if (message.startsWith(Protocol.DEBUG_MODE_STRING)) {
@@ -166,41 +193,119 @@ public class ServerListener implements Listener {
 
                 return "Client: " + message.replace(Protocol.DISCONNECT, "") + " Disconnected.";
             } else if (message.startsWith(Protocol.MESSAGE_HEADER_LEFT_HALF)) {
-                
+
                 String[] data = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
                         .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "").split(Protocol.MESSAGE_HEADER_MIDDLE_HALF);
-                
+
                 if (data.length < 2) {
                     return "";
                 }
-                
+
                 String uuid = data[0];
                 String m = data[1];
                 
-                int messageLength = message.getBytes(StandardCharsets.UTF_8).length;
                 String nameOnlyMessage = message.replace(uuid, userProfile.get(uuid).getName());
-                
+
                 ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
-                
+
                 for (User u : userProfile.values()) {
                     try {
                         if (!uuid.equals(u.getUuid())) {
                             bb.rewind();
-                            
-                            int writtenBytes = u.getChannel().write(bb).get();
-                            
-                            System.out.println("Message Length: " + messageLength + "  Result: " + writtenBytes);
+                            u.getChannel().write(bb).get();
                         }
                     } catch (InterruptedException | ExecutionException e) {
-                        // TODO Auto-generated catch block
                         e.printStackTrace();
+                        shell.getDisplay().syncExec(() -> {
+                            MessageDialog.openError(shell, "出错", "转发出错：" + e.getMessage());
+                        });
                     }
                 }
-                
+
                 message = userProfile.get(uuid).getName() + ": " + m;
             }
 
             return message;
+        }
+    }
+
+    private class DuplicateCheckerService implements Runnable {
+        private DatagramChannel dc;
+        private boolean stopSelf;
+
+        public DuplicateCheckerService() throws IOException {
+            dc = DatagramChannel.open();
+            dc.configureBlocking(true);
+            dc.bind(new InetSocketAddress(Protocol.SERVER_CHECK_DUPLICATE_PORT));
+        }
+        
+        private void reInit() throws IOException {
+            dc = DatagramChannel.open();
+            dc.configureBlocking(true);
+            dc.bind(new InetSocketAddress(Protocol.SERVER_CHECK_DUPLICATE_PORT));
+        }
+
+        @Override
+        public void run() {
+            ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
+            StringBuffer buffer = new StringBuffer();
+
+            while (true && !stopSelf) {
+
+                try {
+                    
+                    if (!dc.isOpen()) {
+                        reInit();
+                    }
+                    
+                    SocketAddress address = dc.receive(bb);
+                    
+                    bb.flip();
+
+                    while (bb.hasRemaining()) {
+                        buffer.append(StandardCharsets.UTF_8.decode(bb));
+                    }
+
+                    String message = buffer.toString();
+
+                    buffer.delete(0, buffer.length());
+                    bb.clear();
+
+                    if (message.startsWith(Protocol.CHECK_DUPLICATE_REQUEST_HEADER)) {
+                        String name = message.replace(Protocol.CHECK_DUPLICATE_REQUEST_HEADER, "");
+                        String result = names.contains(name) ? Protocol.USER_NAME_DUPLICATED
+                                : Protocol.USER_NAME_NOT_EXIST;
+
+                        bb.put(result.getBytes(StandardCharsets.UTF_8));
+                        
+                        bb.flip();
+
+                        dc.send(bb, address);
+                        
+                        bb.clear();
+                    }
+                } catch (IOException e) {
+                    String name = e.getClass().getName();
+                    if (name.contains("ClosedByInterruptException") || name.contains("AsynchronousCloseException")) {
+                        // ignore
+                        return;
+                    }
+                    
+                    e.printStackTrace();
+                }
+            }
+            
+            if (stopSelf) {
+                try {
+                    dc.close();
+                } catch (IOException e) {
+                    // ignore
+                }
+            }
+        }
+        
+        public void stopSelf() {
+            this.stopSelf = true;
         }
     }
 
@@ -216,12 +321,12 @@ public class ServerListener implements Listener {
     @Override
     public void sendCommunicationData(String text, String uuid) {
         final ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
-        
+
         if (uuid.equals(Protocol.BROADCAST_MESSAGE_UUID)) {
             for (User u : userProfile.values()) {
                 try {
                     bb.rewind();
-                    
+
                     while (bb.hasRemaining()) {
                         u.getChannel().write(bb).get();
                     }
@@ -241,13 +346,14 @@ public class ServerListener implements Listener {
 
     @Override
     public void sendMessage(String message, String uuid) {
-        sendCommunicationData(MESSAGE_HEADER_LEFT_HALF + Protocol.BROADCAST_MESSAGE_UUID +
-                                  MESSAGE_HEADER_MIDDLE_HALF + MESSAGE_HEADER_RIGHT_HALF + message, uuid);
+        sendCommunicationData(MESSAGE_HEADER_LEFT_HALF + Protocol.BROADCAST_MESSAGE_UUID + MESSAGE_HEADER_MIDDLE_HALF
+                + MESSAGE_HEADER_RIGHT_HALF + message, uuid);
     }
 
     public void disconnect(String uuid) throws IOException {
         userProfile.get(uuid).getChannel().close();
-        userProfile.remove(uuid);
+        User u = userProfile.remove(uuid);
+        names.remove(u.getName());
     }
 
     public void disconnectAll() throws IOException {
@@ -262,12 +368,13 @@ public class ServerListener implements Listener {
                 // Ignore
             }
         });
-        
+
         userProfile.clear();
     }
 
     @Override
     public void close() throws Exception {
+        duplicateCheckerService.stopSelf();
         threadPool.shutdownNow();
         userProfile.clear();
         serverSocketChannel.close();

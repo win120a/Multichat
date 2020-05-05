@@ -8,11 +8,11 @@ package ac.jcourse.mchat.protocol;
 public interface Protocol {
     int SERVER_PORT = 10240;
     int SERVER_MULTICAST_PORT = 10241;
+    int SERVER_CHECK_DUPLICATE_PORT = 10242;
     
-    int CLIENT_PORT = 10242;
-    int CLIENT_MULTICAST_PORT = 10243;
+    int CLIENT_DEFAULT_PORT = 10243;
     
-    byte[] MULTICAST_IP = {(byte) 230, 0, 119, 1};
+    int BUFFER_SIZE = 1024;
     
     // << CONNECT >>(UUID)>>>>(Name)<< CONNECT >>
     String CONNECTING_GREET_LEFT_HALF = "<< CONNECT >>";

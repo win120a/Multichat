@@ -53,10 +53,19 @@ public final class CommonDialogs {
         } while ((response == null || response.isBlank() || !filter.test(response)) && counter <= 5);
         
         if (counter > 5) {
-            JOptionPane.showMessageDialog(null, errorMessage, "ERROR", JOptionPane.ERROR_MESSAGE);
+            errorDialog(errorMessage);
             System.exit(-1);
         }
         
         return response;
+    }
+    
+    /**
+     * Show error dialog.
+     * @param message The message to display.
+     * @implNote The message dialog is produced by JOptionPane.
+     */
+    public static void errorDialog(String message) {
+        JOptionPane.showMessageDialog(null, message, "ERROR", JOptionPane.ERROR_MESSAGE);
     }
 }

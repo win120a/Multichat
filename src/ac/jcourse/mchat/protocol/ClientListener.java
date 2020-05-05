@@ -1,11 +1,14 @@
 package ac.jcourse.mchat.protocol;
 
 import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -19,6 +22,7 @@ import ac.jcourse.mchat.protocol.handler.Handler;
 
 /**
  * Listener class of Client.
+ * 
  * @author Andy Cheung
  */
 public class ClientListener implements Listener {
@@ -26,13 +30,14 @@ public class ClientListener implements Listener {
     private String uuid;
     private String name;
 
-    public ClientListener(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username) throws IOException {
+    public ClientListener(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username)
+            throws IOException {
         this.name = username;
         init(shell, doInUI, address, port, username);
     }
 
-    private void init(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username) throws IOException {
-        ClientMessageHandler handler = new ClientMessageHandler();
+    private void init(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username)
+            throws IOException {
         socketChannel = AsynchronousSocketChannel.open();
 
         socketChannel.bind(new InetSocketAddress(port));
@@ -41,15 +46,59 @@ public class ClientListener implements Listener {
 
         uuid = UUID.randomUUID().toString();
 
+        initNIOSocketConnection(shell, doInUI, ia, username);
+    }
+
+    public static boolean checkNameDuplicates(byte[] serverAddress, String name) throws IOException {
+        DatagramChannel dc = DatagramChannel.open();
+        
+        ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
+        
+        bb.put((Protocol.CHECK_DUPLICATE_REQUEST_HEADER + name).getBytes(StandardCharsets.UTF_8));
+        bb.flip();
+
+        StringBuffer buffer = new StringBuffer();
+        
+        try {
+
+            dc.configureBlocking(true);
+            dc.send(bb, new InetSocketAddress(InetAddress.getByAddress(serverAddress), Protocol.SERVER_CHECK_DUPLICATE_PORT));
+            
+            bb.clear();
+            
+            dc.receive(bb);
+            
+            bb.flip();
+            
+            while (bb.hasRemaining()) {
+                buffer.append(StandardCharsets.UTF_8.decode(bb));
+            }
+            
+            if (buffer.toString().startsWith(Protocol.USER_NAME_NOT_EXIST)) {
+                return false;
+            } else {
+                return true;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        } finally {
+            dc.close();
+        }
+    }
+
+    private void initNIOSocketConnection(Shell shell, Consumer<String> doInUI, InetAddress ia, String username) {
+        ClientMessageHandler handler = new ClientMessageHandler();
+
         socketChannel.connect(new InetSocketAddress(ia, SERVER_PORT), uuid, new CompletionHandler<Void, String>() {
 
             @Override
             public void completed(Void result, String attachment) {
                 String greetMessage = CONNECTING_GREET_LEFT_HALF + attachment + CONNECTING_GREET_MIDDLE_HALF + username;
-                final ByteBuffer bb = ByteBuffer.wrap(greetMessage.getBytes());
+                final ByteBuffer greetBuffer = ByteBuffer.wrap(greetMessage.getBytes());
 
                 try {
-                    socketChannel.write(bb).get();
+                    socketChannel.write(greetBuffer).get();
                 } catch (InterruptedException | ExecutionException e) {
                     e.printStackTrace();
                 }
@@ -57,28 +106,30 @@ public class ClientListener implements Listener {
                 shell.getDisplay().syncExec(() -> {
                     doInUI.accept("Connected to Server, UserName: " + username + ", UUID: " + uuid);
                 });
-                
-                
-                socketChannel.read(bb, shell.getDisplay(), new CompletionHandler<Integer, Display>() {
+
+                final ByteBuffer buffer = ByteBuffer.allocate(Protocol.BUFFER_SIZE);
+
+                socketChannel.read(buffer, shell.getDisplay(), new CompletionHandler<Integer, Display>() {
 
                     @Override
                     public void completed(Integer result, Display display) {
                         if (result != -1) {
-                            bb.flip();
+                            buffer.flip();
 
                             StringBuffer sbuffer = new StringBuffer();
 
-                            while (bb.hasRemaining()) {
-                                sbuffer.append(StandardCharsets.UTF_8.decode(bb));
+                            while (buffer.hasRemaining()) {
+                                sbuffer.append(StandardCharsets.UTF_8.decode(buffer));
                             }
-                            
-                            display.syncExec(() -> doInUI.accept(handler.handleMessage(sbuffer.toString(), socketChannel)));
 
-                            bb.clear();
+                            display.syncExec(
+                                    () -> doInUI.accept(handler.handleMessage(sbuffer.toString(), socketChannel)));
+
+                            buffer.clear();
                         }
 
                         if (socketChannel != null && socketChannel.isOpen()) {
-                            socketChannel.read(bb, shell.getDisplay(), this);
+                            socketChannel.read(buffer, shell.getDisplay(), this);
                         }
                     }
 
@@ -87,9 +138,9 @@ public class ClientListener implements Listener {
                         if (exc.getClass().getName().contains("AsynchronousCloseException")) {
                             return;
                         }
-                        
+
                         exc.printStackTrace();
-                        
+
                         display.syncExec(() -> {
                             MessageDialog.openError(shell, "出错", "客户机读取出错：" + exc.getMessage());
                         });
@@ -100,7 +151,7 @@ public class ClientListener implements Listener {
             @Override
             public void failed(Throwable exc, String attachment) {
                 exc.printStackTrace();
-                
+
                 if (shell != null && !shell.isDisposed()) {
                     shell.getDisplay().syncExec(() -> {
                         MessageDialog.openError(shell, "出错", "客户机读取出错：" + exc.getMessage());
@@ -115,8 +166,9 @@ public class ClientListener implements Listener {
         public String handleMessage(String message, AsynchronousSocketChannel socketChannel) {
             if (message.startsWith(Protocol.MESSAGE_HEADER_LEFT_HALF)) {
                 message = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
-                            .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "").replace(Protocol.MESSAGE_HEADER_MIDDLE_HALF, ": ");
-                
+                        .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "")
+                        .replace(Protocol.MESSAGE_HEADER_MIDDLE_HALF, ": ");
+
             } else if (message.startsWith(Protocol.CONNECTING_GREET_LEFT_HALF)) {
                 return "";
             } else if (message.startsWith(Protocol.DISCONNECT)) {
@@ -125,10 +177,10 @@ public class ClientListener implements Listener {
                 } catch (IOException e) {
                     // Ignore.
                 }
-                
+
                 return "Server disconnected the connection.";
             }
-            
+
             return message;
         }
     }
@@ -156,15 +208,16 @@ public class ClientListener implements Listener {
             e.printStackTrace();
         }
     }
-    
+
     public void sendMessage(String message) {
         sendMessage(message, uuid);
     }
 
     @Override
     public void sendMessage(String message, String uuidValue) {
-        sendCommunicationData(MESSAGE_HEADER_LEFT_HALF + uuidValue + MESSAGE_HEADER_MIDDLE_HALF + 
-                                MESSAGE_HEADER_RIGHT_HALF + message, uuidValue);
+        sendCommunicationData(
+                MESSAGE_HEADER_LEFT_HALF + uuidValue + MESSAGE_HEADER_MIDDLE_HALF + MESSAGE_HEADER_RIGHT_HALF + message,
+                uuidValue);
     }
 
     public void disconnect() throws IOException {
@@ -174,7 +227,7 @@ public class ClientListener implements Listener {
             socketChannel = null;
         }
     }
-    
+
     public void disconnectWithoutNotification() throws IOException {
         if (isConnected()) {
             socketChannel.close();
