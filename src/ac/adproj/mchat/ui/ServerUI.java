@@ -1,16 +1,16 @@
-package ac.jcourse.mchat.ui;
+package ac.adproj.mchat.ui;
 
 import java.io.IOException;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 
-import ac.jcourse.mchat.protocol.Protocol;
-import ac.jcourse.mchat.protocol.ServerListener;
+import ac.adproj.mchat.protocol.Protocol;
+import ac.adproj.mchat.protocol.ServerListener;
 
 public class ServerUI extends BaseChattingUI {
     private ServerListener listener;
 
-    public void initListener() throws IOException {
+    private void initListener() throws IOException {
         listener = new ServerListener(this, (message) ->  {
             appendMessageDisplay(message);
         });

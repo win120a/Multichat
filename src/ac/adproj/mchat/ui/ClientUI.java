@@ -1,13 +1,13 @@
-package ac.jcourse.mchat.ui;
+package ac.adproj.mchat.ui;
 
-import static ac.jcourse.mchat.ui.CommonDialogs.*;
+import static ac.adproj.mchat.ui.CommonDialogs.*;
 
 import java.io.IOException;
 
 import org.eclipse.swt.widgets.Display;
 
-import ac.jcourse.mchat.protocol.ClientListener;
-import ac.jcourse.mchat.protocol.Protocol;
+import ac.adproj.mchat.protocol.ClientListener;
+import ac.adproj.mchat.protocol.Protocol;
 
 public class ClientUI extends BaseChattingUI {
     private ClientListener listener;

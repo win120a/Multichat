@@ -1,4 +1,4 @@
-package ac.jcourse.mchat.protocol;
+package ac.adproj.mchat.protocol;
 
 /**
  * Interface that represents a connection listener.

@@ -1,4 +1,4 @@
-package ac.jcourse.mchat.model;
+package ac.adproj.mchat.model;
 
 import java.nio.channels.AsynchronousSocketChannel;
 import java.util.Objects;

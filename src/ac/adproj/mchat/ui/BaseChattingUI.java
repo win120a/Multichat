@@ -1,4 +1,4 @@
-package ac.jcourse.mchat.ui;
+package ac.adproj.mchat.ui;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;

@@ -1,4 +1,4 @@
-package ac.jcourse.mchat.protocol;
+package ac.adproj.mchat.protocol;
 
 import java.io.IOException;
 import java.lang.ref.SoftReference;
@@ -28,8 +28,8 @@ import java.util.function.Consumer;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Shell;
 
-import ac.jcourse.mchat.model.User;
-import ac.jcourse.mchat.protocol.handler.Handler;
+import ac.adproj.mchat.model.User;
+import ac.adproj.mchat.protocol.handler.Handler;
 
 /**
  * Listener class of Chatting Server.

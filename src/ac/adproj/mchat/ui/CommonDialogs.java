@@ -1,4 +1,4 @@
-package ac.jcourse.mchat.ui;
+package ac.adproj.mchat.ui;
 
 import java.util.function.Predicate;
 

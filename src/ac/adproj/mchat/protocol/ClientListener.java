@@ -1,4 +1,4 @@
-package ac.jcourse.mchat.protocol;
+package ac.adproj.mchat.protocol;
 
 import java.io.IOException;
 import java.net.DatagramSocket;
@@ -18,7 +18,7 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
-import ac.jcourse.mchat.protocol.handler.Handler;
+import ac.adproj.mchat.protocol.handler.Handler;
 
 /**
  * Listener class of Client.

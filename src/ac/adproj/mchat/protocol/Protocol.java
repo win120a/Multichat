@@ -1,17 +1,29 @@
-package ac.jcourse.mchat.protocol;
+package ac.adproj.mchat.protocol;
 
 /**
- * Protocol Strings that will be used in Listeners.
+ * Strings that will be used in the Protocol and Listeners.
  *  
  * @author Andy Cheung
  */
 public interface Protocol {
+    /**
+     * Port of chatting service of Server.
+     */
     int SERVER_PORT = 10240;
-    int SERVER_MULTICAST_PORT = 10241;
-    int SERVER_CHECK_DUPLICATE_PORT = 10242;
     
-    int CLIENT_DEFAULT_PORT = 10243;
+    /**
+     * Port of UDP Users' Name Query Service.
+     */
+    int SERVER_CHECK_DUPLICATE_PORT = 10241;
     
+    /**
+     * Default port of client.
+     */
+    int CLIENT_DEFAULT_PORT = 10242;
+    
+    /**
+     * Size of buffers in NIO.
+     */
     int BUFFER_SIZE = 1024;
     
     // << CONNECT >>(UUID)>>>>(Name)<< CONNECT >>

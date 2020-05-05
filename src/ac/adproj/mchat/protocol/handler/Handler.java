@@ -1,4 +1,4 @@
-package ac.jcourse.mchat.protocol.handler;
+package ac.adproj.mchat.protocol.handler;
 
 import java.nio.channels.AsynchronousSocketChannel;
 
