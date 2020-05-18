@@ -1,3 +1,20 @@
+/*
+    Copyright (C) 2011-2020 Andy Cheung
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 package ac.adproj.mchat.protocol;
 
 import java.io.IOException;
@@ -11,12 +28,7 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -30,6 +42,7 @@ import org.eclipse.swt.widgets.Shell;
 
 import ac.adproj.mchat.model.User;
 import ac.adproj.mchat.protocol.handler.Handler;
+import ac.adproj.mchat.ui.CommonDialogs;
 
 /**
  * Listener class of Chatting Server.
@@ -41,20 +54,20 @@ public class ServerListener implements Listener {
     private AsynchronousServerSocketChannel serverSocketChannel = null;
 
     private ExecutorService threadPool;
-    private Map<String, User> userProfile = new ConcurrentHashMap<>(16);
-    private Set<String> names = Collections.synchronizedSet(new HashSet<>());
+    private UserManager userManager;
 
     private Shell shell;
-    private Consumer<String> doInUI;
+    private Consumer<String> uiActions;
     private DuplicateCheckerService duplicateCheckerService;
 
     private int threadNumber = 0;
 
-    public ServerListener(Shell shell, Consumer<String> doInUI) throws IOException {
+    public ServerListener(Shell shell, Consumer<String> uiActions) throws IOException {
         this.shell = shell;
-        this.doInUI = doInUI;
+        this.uiActions = uiActions;
+        this.userManager = UserManager.getInstance();
 
-        init(shell, doInUI);
+        init(shell);
     }
 
     private void readMessage(ByteBuffer bb, Handler handler, Integer result, AsynchronousSocketChannel channel) {
@@ -72,14 +85,14 @@ public class ServerListener implements Listener {
             String message = handler.handleMessage(sbuffer.toString(), channel);
 
             shell.getDisplay().syncExec(() -> {
-                doInUI.accept(message);
+                uiActions.accept(message);
             });
 
             bb.clear();
         }
     }
 
-    private void init(Shell shell, Consumer<String> doInUI) throws IOException {
+    private void init(Shell shell) throws IOException {
         ServerMessageHandler handler = new ServerMessageHandler();
 
         BlockingQueue<Runnable> bq = new LinkedBlockingQueue<>(16);
@@ -126,17 +139,18 @@ public class ServerListener implements Listener {
                         
                         SoftReference<User> sr = null;
                         
-                        for (User user : userProfile.values()) {
+                        for (User user : userManager.userProfileValueSet()) {
                             if (user.getChannel().equals(channel)) {
                                 sr = new SoftReference<>(user);
                             }
                         };
                         
-                        userProfile.remove(sr.get().getUuid());
-                        names.remove(sr.get().getName());
-                        
-                        sr.clear();
-                        sr = null;
+                        if (sr != null) {
+                            userManager.deleteUserProfile(sr.get().getUuid());
+                            
+                            sr.clear();
+                            sr = null;
+                        }
                     }
                 });
 
@@ -173,12 +187,11 @@ public class ServerListener implements Listener {
 
                 User userObject = new User(uuid, channel, name);
 
-                userProfile.put(uuid, userObject);
-                names.add(name);
+                userManager.register(userObject);
 
                 return "Client: " + uuid + " (" + name + ") Connected.";
             } else if (message.startsWith(Protocol.DEBUG_MODE_STRING)) {
-                System.out.println(userProfile);
+                System.out.println(userManager.toString());
                 return "";
 
             } else if (message.startsWith(Protocol.DISCONNECT)) {
@@ -204,11 +217,11 @@ public class ServerListener implements Listener {
                 String uuid = data[0];
                 String m = data[1];
                 
-                String nameOnlyMessage = message.replace(uuid, userProfile.get(uuid).getName());
+                String nameOnlyMessage = message.replace(uuid, userManager.getName(uuid));
 
                 ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
 
-                for (User u : userProfile.values()) {
+                for (User u : userManager.userProfileValueSet()) {
                     try {
                         if (!uuid.equals(u.getUuid())) {
                             bb.rewind();
@@ -222,7 +235,7 @@ public class ServerListener implements Listener {
                     }
                 }
 
-                message = userProfile.get(uuid).getName() + ": " + m;
+                message = userManager.getName(uuid) + ": " + m;
             }
 
             return message;
@@ -250,7 +263,7 @@ public class ServerListener implements Listener {
             ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
             StringBuffer buffer = new StringBuffer();
 
-            while (true && !stopSelf) {
+            while (!stopSelf) {
 
                 try {
                     
@@ -273,7 +286,7 @@ public class ServerListener implements Listener {
 
                     if (message.startsWith(Protocol.CHECK_DUPLICATE_REQUEST_HEADER)) {
                         String name = message.replace(Protocol.CHECK_DUPLICATE_REQUEST_HEADER, "");
-                        String result = names.contains(name) ? Protocol.USER_NAME_DUPLICATED
+                        String result = userManager.containsName(name) ? Protocol.USER_NAME_DUPLICATED
                                 : Protocol.USER_NAME_NOT_EXIST;
 
                         bb.put(result.getBytes(StandardCharsets.UTF_8));
@@ -311,7 +324,7 @@ public class ServerListener implements Listener {
 
     @Override
     public boolean isConnected() {
-        if (userProfile.isEmpty()) {
+        if (userManager.isEmptyUserProfile()) {
             return false;
         } else {
             return true;
@@ -323,7 +336,7 @@ public class ServerListener implements Listener {
         final ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
 
         if (uuid.equals(Protocol.BROADCAST_MESSAGE_UUID)) {
-            for (User u : userProfile.values()) {
+            for (User u : userManager.userProfileValueSet()) {
                 try {
                     bb.rewind();
 
@@ -331,13 +344,13 @@ public class ServerListener implements Listener {
                         u.getChannel().write(bb).get();
                     }
                 } catch (InterruptedException | ExecutionException e) {
-                    // TODO Auto-generated catch block
                     e.printStackTrace();
+                    CommonDialogs.errorDialog("发送信息出错: " + e.getMessage());
                 }
             }
         } else {
             try {
-                userProfile.get(uuid).getChannel().write(bb).get();
+                userManager.lookup(uuid).getChannel().write(bb).get();
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
@@ -351,32 +364,31 @@ public class ServerListener implements Listener {
     }
 
     public void disconnect(String uuid) throws IOException {
-        userProfile.get(uuid).getChannel().close();
-        User u = userProfile.remove(uuid);
-        names.remove(u.getName());
+        userManager.lookup(uuid).getChannel().close();
+        userManager.deleteUserProfile(uuid);
     }
 
     public void disconnectAll() throws IOException {
-        userProfile.forEach((K, V) -> {
+        userManager.userProfileValueSet().forEach((value) -> {
             try {
                 final ByteBuffer bb = ByteBuffer
                         .wrap((Protocol.DISCONNECT + "SERVER").getBytes(StandardCharsets.UTF_8));
 
-                V.getChannel().write(bb).get();
-                V.getChannel().close();
+                value.getChannel().write(bb).get();
+                value.getChannel().close();
             } catch (IOException | InterruptedException | ExecutionException e) {
                 // Ignore
             }
         });
 
-        userProfile.clear();
+        userManager.clearAllProfiles();
     }
 
     @Override
     public void close() throws Exception {
         duplicateCheckerService.stopSelf();
         threadPool.shutdownNow();
-        userProfile.clear();
+        userManager.clearAllProfiles();
         serverSocketChannel.close();
     }
 }

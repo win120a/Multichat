@@ -1,3 +1,20 @@
+/*
+    Copyright (C) 2011-2020 Andy Cheung
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 package ac.adproj.mchat.ui;
 
 import org.eclipse.swt.SWT;
@@ -48,13 +65,16 @@ public abstract class BaseChattingUI extends Shell {
         
         messageDisplay = new Text(this, SWT.BORDER | SWT.READ_ONLY | SWT.H_SCROLL | SWT.V_SCROLL | SWT.CANCEL | SWT.MULTI);
         GridData gd_messageDisplay = new GridData(SWT.FILL, SWT.FILL, true, true, 4, 1);
-        gd_messageDisplay.heightHint = 377;
+        gd_messageDisplay.heightHint = 364;
         messageDisplay.setLayoutData(gd_messageDisplay);
         
-        messageToSend = new Text(this, SWT.BORDER);
-        messageToSend.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, false, 2, 1));
+        messageToSend = new Text(this, SWT.BORDER | SWT.H_SCROLL | SWT.V_SCROLL | SWT.CANCEL | SWT.MULTI);
+        GridData gd_messageToSend = new GridData(SWT.FILL, SWT.FILL, true, true, 2, 2);
+        gd_messageToSend.heightHint = 103;
+        messageToSend.setLayoutData(gd_messageToSend);
         
         disconnect = new Button(this, SWT.NONE);
+        disconnect.setLayoutData(new GridData(SWT.FILL, SWT.FILL, false, true, 2, 1));
         disconnect.addSelectionListener(new SelectionAdapter() {
             @Override
             public void widgetSelected(SelectionEvent e) {
@@ -63,8 +83,11 @@ public abstract class BaseChattingUI extends Shell {
         });
         disconnect.setText("  \u65AD\u5F00  ");
         
+        setText("\u591A\u7AEF\u804A\u5929\u7A0B\u5E8F");
+        setSize(870, 647);
+        
         send = new Button(this, SWT.NONE);
-        send.setLayoutData(new GridData(SWT.LEFT, SWT.FILL, false, false, 1, 1));
+        send.setLayoutData(new GridData(SWT.FILL, SWT.FILL, false, true, 2, 1));
         send.addSelectionListener(new SelectionAdapter() {
             @Override
             public void widgetSelected(SelectionEvent e) {
@@ -77,9 +100,6 @@ public abstract class BaseChattingUI extends Shell {
             }
         });
         send.setText("  \u53D1\u9001  ");
-        
-        setText("\u53CC\u7AEF\u5520\u55D1\u7A0B\u5E8F");
-        setSize(794, 577);
     }
     
     protected abstract void handleSendMessage(String text);
