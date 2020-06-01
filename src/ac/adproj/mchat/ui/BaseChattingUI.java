@@ -27,6 +27,11 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
 
+/**
+ * Base Chatting UI.
+ * 
+ * @author Andy Cheung
+ */
 public abstract class BaseChattingUI extends Shell {
     protected Text messageToSend;
     protected Text messageDisplay;
@@ -35,6 +40,11 @@ public abstract class BaseChattingUI extends Shell {
     
     private boolean hasReceivedMessage;
     
+    /**
+     * Append text to the chatting content field.
+     * 
+     * @param message The chatting message.
+     */
     public void appendMessageDisplay(String message) {
         if (hasReceivedMessage) {
             messageDisplay.setText(messageDisplay.getText() + "\r\n" + message);
@@ -83,7 +93,7 @@ public abstract class BaseChattingUI extends Shell {
         });
         disconnect.setText("  \u65AD\u5F00  ");
         
-        setText("\u591A\u7AEF\u804A\u5929\u7A0B\u5E8F");
+        setText("\u591A\u7AEF\u804A\u5929\u7A0B\u5E8F (TCP)");
         setSize(870, 647);
         
         send = new Button(this, SWT.NONE);
@@ -102,7 +112,16 @@ public abstract class BaseChattingUI extends Shell {
         send.setText("  \u53D1\u9001  ");
     }
     
+    /**
+     * Handler of clicking event of "Send" button.
+     * 
+     * @param text The text of the message.
+     */
     protected abstract void handleSendMessage(String text);
+    
+    /**
+     * Handler of the "Disconnect" button.
+     */
     protected abstract void handleDisconnect();
 
     @Override

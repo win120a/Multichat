@@ -15,17 +15,24 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package ac.adproj.mchat.protocol.handler;
+package ac.adproj.mchat.handler;
 
 import java.nio.channels.AsynchronousSocketChannel;
 
 /**
- * Interface that represents a message handler.
+ * Message handler interface.
  * 
  * @author Andy Cheung
- * @date 2020/4/26
+ * @since 2020.4.26
  */
 public interface Handler {
+    /**
+     * Handle protocol messages.
+     * 
+     * @param message Raw protocol message.
+     * @param channel The socket channel of the other side.
+     * @return The text will be transmitted to UI.
+     */
     default String handleMessage(String message, AsynchronousSocketChannel channel) {
         return message;
     }

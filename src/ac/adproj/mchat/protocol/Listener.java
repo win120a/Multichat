@@ -17,6 +17,8 @@
 
 package ac.adproj.mchat.protocol;
 
+import ac.adproj.mchat.model.Protocol;
+
 /**
  * Interface that represents a connection listener.
  * 
@@ -26,9 +28,26 @@ package ac.adproj.mchat.protocol;
  * @see AutoCloseable
  */
 public interface Listener extends Protocol, AutoCloseable {
+    /**
+     * Send user message.
+     * 
+     * @param message The user message.
+     * @param uuid    The user's UUID.
+     */
     void sendMessage(String message, String uuid);
 
+    /**
+     * Send raw protocol message.
+     * 
+     * @param message The raw protocol message.
+     * @param uuid    The user's UUID.
+     */
     void sendCommunicationData(String text, String uuid);
-    
+
+    /**
+     * Determine whether the server is connected by clients.
+     * 
+     * @return True if connected.
+     */
     boolean isConnected();
 }

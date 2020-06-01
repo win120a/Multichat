@@ -33,7 +33,8 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 
-import ac.adproj.mchat.protocol.handler.Handler;
+import ac.adproj.mchat.handler.ClientMessageHandler;
+import ac.adproj.mchat.model.Protocol;
 
 /**
  * Listener class of Client.
@@ -103,7 +104,14 @@ public class ClientListener implements Listener {
     }
 
     private void initNIOSocketConnection(Shell shell, Consumer<String> doInUI, InetAddress ia, String username) {
-        ClientMessageHandler handler = new ClientMessageHandler();
+        ClientMessageHandler handler = new ClientMessageHandler((v) -> {
+            try {
+                disconnectWithoutNotification();
+            } catch (IOException e) {
+                e.printStackTrace();
+                shell.getDisplay().syncExec(() -> MessageDialog.openError(shell, "出错", "下线出错：" + e.getMessage()));
+            }
+        });
 
         socketChannel.connect(new InetSocketAddress(ia, SERVER_PORT), uuid, new CompletionHandler<Void, String>() {
 
@@ -174,30 +182,6 @@ public class ClientListener implements Listener {
                 }
             }
         });
-    }
-
-    private class ClientMessageHandler implements Handler {
-        @Override
-        public String handleMessage(String message, AsynchronousSocketChannel socketChannel) {
-            if (message.startsWith(Protocol.MESSAGE_HEADER_LEFT_HALF)) {
-                message = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
-                        .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "")
-                        .replace(Protocol.MESSAGE_HEADER_MIDDLE_HALF, ": ");
-
-            } else if (message.startsWith(Protocol.CONNECTING_GREET_LEFT_HALF)) {
-                return "";
-            } else if (message.startsWith(Protocol.DISCONNECT)) {
-                try {
-                    disconnectWithoutNotification();
-                } catch (IOException e) {
-                    // Ignore.
-                }
-
-                return "Server disconnected the connection.";
-            }
-
-            return message;
-        }
     }
 
     public String getUuid() {

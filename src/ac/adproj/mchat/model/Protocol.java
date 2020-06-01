@@ -15,16 +15,16 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package ac.adproj.mchat.protocol;
+package ac.adproj.mchat.model;
 
 /**
- * Strings that will be used in the Protocol and Listeners.
+ * Constants that will be used in Listeners and Handlers.
  *  
  * @author Andy Cheung
  */
 public interface Protocol {
     /**
-     * Port of chatting service of Server.
+     * Port of (TCP) chatting service of Server.
      */
     int SERVER_PORT = 10240;
     
@@ -63,4 +63,7 @@ public interface Protocol {
     String CHECK_DUPLICATE_REQUEST_HEADER = "<<< DUP ? >>> ";
     String USER_NAME_DUPLICATED = ">>> DUPLICATED <<< ";
     String USER_NAME_NOT_EXIST = "<<< Clear >>>";
+    
+    String WEBSOCKET_UUID_HEADER = "<WS><<";
+    String WEBSOCKET_UUID_TAIL = ">>";
 }

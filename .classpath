@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
+	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/jdk-14">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="lib" path="C:/DevKits/eclipse/plugins/org.eclipse.osgi_3.15.200.v20200214-1600.jar" sourcepath="C:/DevKits/eclipse/plugins/org.eclipse.osgi_3.15.200.v20200214-1600.jar"/>
 	<classpathentry kind="lib" path="C:/DevKits/eclipse/plugins/org.eclipse.core.commands_3.9.700.v20191217-1850.jar" sourcepath="C:/DevKits/eclipse/plugins/org.eclipse.core.commands_3.9.700.v20191217-1850.jar"/>
 	<classpathentry kind="lib" path="C:/DevKits/eclipse/plugins/org.eclipse.equinox.common_3.11.0.v20200206-0817.jar" sourcepath="C:/DevKits/eclipse/plugins/org.eclipse.equinox.common_3.11.0.v20200206-0817.jar"/>
@@ -18,5 +18,6 @@
 	<classpathentry kind="lib" path="C:/DevKits/eclipse/plugins/org.eclipse.ui.workbench_3.118.0.v20200222-0719.jar" sourcepath="C:/DevKits/eclipse/plugins/org.eclipse.ui.workbench_3.118.0.v20200222-0719.jar"/>
 	<classpathentry kind="lib" path="C:/DevKits/eclipse/plugins/com.ibm.icu_64.2.0.v20190507-1337.jar" sourcepath="C:/DevKits/eclipse/plugins/com.ibm.icu_64.2.0.v20190507-1337.jar"/>
 	<classpathentry kind="lib" path="C:/DevKits/eclipse/plugins/org.eclipse.ui.forms_3.9.0.v20200213-1442.jar" sourcepath="C:/DevKits/eclipse/plugins/org.eclipse.ui.forms_3.9.0.v20200213-1442.jar"/>
+	<classpathentry kind="lib" path="C:/DevKits/Libraries/jetty-all-9.4.28.v20200408-uber.jar" sourcepath="C:/DevKits/Libraries/jetty-src.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

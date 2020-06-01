@@ -21,15 +21,21 @@ import java.io.IOException;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 
-import ac.adproj.mchat.protocol.Protocol;
+import ac.adproj.mchat.model.Protocol;
 import ac.adproj.mchat.protocol.ServerListener;
+import ac.adproj.mchat.service.CommonThreadPool;
+import ac.adproj.mchat.service.MessageDistributor;
 
 public class ServerUI extends BaseChattingUI {
     private ServerListener listener;
 
     private void initListener() throws IOException {
-        listener = new ServerListener(this, (message) ->  {
-            appendMessageDisplay(message);
+        listener = ServerListener.getInstance();
+        
+        MessageDistributor.getInstance().registerSubscriber((message) ->  {
+            this.getDisplay().asyncExec(() -> {
+                appendMessageDisplay(message);
+            });
         });
     }
 
@@ -80,6 +86,7 @@ public class ServerUI extends BaseChattingUI {
         }
         
         ui.listener.close();
+        CommonThreadPool.shutdown();
     }
 
 }

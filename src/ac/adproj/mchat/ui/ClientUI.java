@@ -23,8 +23,8 @@ import java.io.IOException;
 
 import org.eclipse.swt.widgets.Display;
 
+import ac.adproj.mchat.model.Protocol;
 import ac.adproj.mchat.protocol.ClientListener;
-import ac.adproj.mchat.protocol.Protocol;
 
 public class ClientUI extends BaseChattingUI {
     private ClientListener listener;
