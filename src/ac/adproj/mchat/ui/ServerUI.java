@@ -25,6 +25,7 @@ import ac.adproj.mchat.model.Protocol;
 import ac.adproj.mchat.protocol.ServerListener;
 import ac.adproj.mchat.service.CommonThreadPool;
 import ac.adproj.mchat.service.MessageDistributor;
+import ac.adproj.mchat.web.WebServerStarter;
 
 public class ServerUI extends BaseChattingUI {
     private ServerListener listener;
@@ -75,6 +76,9 @@ public class ServerUI extends BaseChattingUI {
         ui.initListener();
         
         Display d = ui.getDisplay();
+        
+        WebServerStarter s = new WebServerStarter();
+        s.start(8090);
 
         ui.open();
         ui.layout();
@@ -85,6 +89,7 @@ public class ServerUI extends BaseChattingUI {
             }
         }
         
+        s.close();
         ui.listener.close();
         CommonThreadPool.shutdown();
     }

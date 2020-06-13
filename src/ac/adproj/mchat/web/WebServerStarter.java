@@ -64,7 +64,6 @@ public class WebServerStarter implements AutoCloseable {
             webapp.setContextPath("/acmcs");
             webapp.setWar(WebClientLoader.getWebappWarPath());
             webapp.addServlet(new ServletHolder(new WebSocketHandlerFacade()), "/wshandler");
-
             server.setHandler(webapp);
 
             try {
