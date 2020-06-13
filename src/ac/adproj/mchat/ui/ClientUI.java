@@ -57,30 +57,6 @@ public class ClientUI extends BaseChattingUI {
         disconnect.setEnabled(false);
     }
     
-    private static byte[] getServerIPAddress() {
-
-        String ipAddress = inputDialog("127.0.0.1", "请输入服务器IPv4地址：", "必须输入IP地址！", (s) -> s.matches("\\d.+\\d.+\\d.+\\d+"));
-
-        String[] address = ipAddress.split("[.]");
-        
-        byte[] addressByteArray = new byte[4];
-        
-        for (int i = 0; i < address.length; i++) {
-            addressByteArray[i] = (byte) Integer.parseInt(address[i]);
-        }
-        
-        return addressByteArray;
-    }
-    
-    private static int getPort() {
-        String portString = inputDialog(Integer.toString(Protocol.CLIENT_DEFAULT_PORT), "请输入客户端端口：", "必须输入端口！", (s) -> {
-            int port = Integer.parseInt(s);
-            return s.matches("\\d+") && port > 0 && port <= 65535;
-        });
-        
-        return Integer.parseInt(portString);
-    }
-    
     private static String getUserName() {
         return inputDialog("请输入用户名", "必须输入用户名！");
     }
@@ -92,7 +68,13 @@ public class ClientUI extends BaseChattingUI {
         
         ui.open();
         
-        ui.initListener(getServerIPAddress(), getPort(), getUserName());
+        ClientConfigurationDialog.StatusWrapper cfd = ClientConfigurationDialog.showDialog();
+        
+        if (cfd == null) {
+            System.exit(-1);
+        }
+        
+        ui.initListener(cfd.ip, cfd.port, cfd.nickname);
 
         Display d = ui.getDisplay();
         
