@@ -24,6 +24,11 @@ import ac.adproj.mchat.protocol.ServerListener;
 import ac.adproj.mchat.service.MessageDistributor;
 import ac.adproj.mchat.web.WebServerStarter;
 
+/**
+ * Provides a simplest user interface that only uses console to produce output. 
+ * 
+ * @author Andy Cheung
+ */
 public class HeadlessServer {
     public static void main(String[] args) throws IOException {
         System.out.println("AC Multichat Server (TCP, Headless)");
@@ -31,6 +36,8 @@ public class HeadlessServer {
                             "Accepting TCP Connection on port %d, WebSocket connection on %d."
                                 , Protocol.SERVER_PORT, 8090));
         System.out.println("Press <Ctrl> + <C / D> to stop.");
+        System.out.println();
+        
         try (ServerListener listener = ServerListener.getInstance(); WebServerStarter starter = new WebServerStarter()) {
             MessageDistributor.getInstance().registerSubscriber((message) -> {
                 System.out.println(message);
