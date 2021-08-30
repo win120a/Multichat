@@ -17,6 +17,12 @@
 
 package ac.adproj.mchat.protocol;
 
+import ac.adproj.mchat.handler.ClientMessageHandler;
+import ac.adproj.mchat.model.Protocol;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -27,18 +33,13 @@ import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Shell;
-
-import ac.adproj.mchat.handler.ClientMessageHandler;
-import ac.adproj.mchat.model.Protocol;
 
 /**
  * Listener class of Client.
- * 
+ *
  * @author Andy Cheung
  */
 public class ClientListener implements Listener {
@@ -46,13 +47,55 @@ public class ClientListener implements Listener {
     private String uuid;
     private String name;
 
-    public ClientListener(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username)
+    private final ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2);
+
+    public ClientListener(Shell shell, Consumer<String> uiActions, byte[] address, int port, String username)
             throws IOException {
         this.name = username;
-        init(shell, doInUI, address, port, username);
+        init(shell, uiActions, address, port, username);
     }
 
-    private void init(Shell shell, Consumer<String> doInUI, byte[] address, int port, String username)
+    private void registerKeepaliveSender() {
+        scheduledThreadPoolExecutor.schedule(() -> {
+            sendCommunicationData(Protocol.KEEP_ALIVE_HEADER + "", uuid);
+        }, 30, TimeUnit.SECONDS);
+    }
+
+    public static boolean checkNameDuplicates(byte[] serverAddress, String name) throws IOException {
+        DatagramChannel dc = DatagramChannel.open();
+
+        ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
+
+        bb.put((Protocol.CHECK_DUPLICATE_REQUEST_HEADER + name).getBytes(StandardCharsets.UTF_8));
+        bb.flip();
+
+        StringBuilder buffer = new StringBuilder();
+
+        try {
+            dc.configureBlocking(true);
+            dc.send(bb, new InetSocketAddress(InetAddress.getByAddress(serverAddress), Protocol.SERVER_CHECK_DUPLICATE_PORT));
+
+            bb.clear();
+
+            dc.receive(bb);
+
+            bb.flip();
+
+            while (bb.hasRemaining()) {
+                buffer.append(StandardCharsets.UTF_8.decode(bb));
+            }
+
+            return !buffer.toString().startsWith(Protocol.USER_NAME_NOT_EXIST);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        } finally {
+            dc.close();
+        }
+    }
+
+    private void init(Shell shell, Consumer<String> uiActions, byte[] address, int port, String username)
             throws IOException {
         socketChannel = AsynchronousSocketChannel.open();
 
@@ -62,49 +105,13 @@ public class ClientListener implements Listener {
 
         uuid = UUID.randomUUID().toString();
 
-        initNIOSocketConnection(shell, doInUI, ia, username);
+        initNIOSocketConnection(shell, uiActions, ia, username);
+
+        registerKeepaliveSender();
     }
 
-    public static boolean checkNameDuplicates(byte[] serverAddress, String name) throws IOException {
-        DatagramChannel dc = DatagramChannel.open();
-        
-        ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
-        
-        bb.put((Protocol.CHECK_DUPLICATE_REQUEST_HEADER + name).getBytes(StandardCharsets.UTF_8));
-        bb.flip();
-
-        StringBuffer buffer = new StringBuffer();
-        
-        try {
-
-            dc.configureBlocking(true);
-            dc.send(bb, new InetSocketAddress(InetAddress.getByAddress(serverAddress), Protocol.SERVER_CHECK_DUPLICATE_PORT));
-            
-            bb.clear();
-            
-            dc.receive(bb);
-            
-            bb.flip();
-            
-            while (bb.hasRemaining()) {
-                buffer.append(StandardCharsets.UTF_8.decode(bb));
-            }
-            
-            if (buffer.toString().startsWith(Protocol.USER_NAME_NOT_EXIST)) {
-                return false;
-            } else {
-                return true;
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        } finally {
-            dc.close();
-        }
-    }
-
-    private void initNIOSocketConnection(Shell shell, Consumer<String> doInUI, InetAddress ia, String username) {
-        ClientMessageHandler handler = new ClientMessageHandler((v) -> {
+    private void initNIOSocketConnection(Shell shell, Consumer<String> uiActions, InetAddress ia, String username) {
+        ClientMessageHandler handler = new ClientMessageHandler(v -> {
             try {
                 disconnectWithoutNotification();
             } catch (IOException e) {
@@ -113,7 +120,7 @@ public class ClientListener implements Listener {
             }
         });
 
-        socketChannel.connect(new InetSocketAddress(ia, SERVER_PORT), uuid, new CompletionHandler<Void, String>() {
+        socketChannel.connect(new InetSocketAddress(ia, SERVER_PORT), uuid, new CompletionHandler<>() {
 
             @Override
             public void completed(Void result, String attachment) {
@@ -127,26 +134,26 @@ public class ClientListener implements Listener {
                 }
 
                 shell.getDisplay().syncExec(() -> {
-                    doInUI.accept("Connected to Server, UserName: " + username + ", UUID: " + uuid);
+                    uiActions.accept("Connected to Server, UserName: " + username + ", UUID: " + uuid);
                 });
 
                 final ByteBuffer buffer = ByteBuffer.allocate(Protocol.BUFFER_SIZE);
 
-                socketChannel.read(buffer, shell.getDisplay(), new CompletionHandler<Integer, Display>() {
+                socketChannel.read(buffer, shell.getDisplay(), new CompletionHandler<>() {
 
                     @Override
                     public void completed(Integer result, Display display) {
                         if (result != -1) {
                             buffer.flip();
 
-                            StringBuffer sbuffer = new StringBuffer();
+                            StringBuilder sbuffer = new StringBuilder();
 
                             while (buffer.hasRemaining()) {
                                 sbuffer.append(StandardCharsets.UTF_8.decode(buffer));
                             }
 
                             display.syncExec(
-                                    () -> doInUI.accept(handler.handleMessage(sbuffer.toString(), socketChannel)));
+                                    () -> uiActions.accept(handler.handleMessage(sbuffer.toString(), socketChannel)));
 
                             buffer.clear();
                         }

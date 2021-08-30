@@ -115,4 +115,8 @@ public interface Protocol {
      * Tail of WebSocket user registering message.
      */
     String WEBSOCKET_UUID_TAIL = ">>";
+
+    // // KA // <UUID>
+    String KEEP_ALIVE_HEADER = "// KA // ";
+    String KEEP_ALIVE_TAIL = " //";
 }

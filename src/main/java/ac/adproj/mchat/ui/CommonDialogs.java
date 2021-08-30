@@ -17,22 +17,26 @@
 
 package ac.adproj.mchat.ui;
 
-import java.util.function.Predicate;
-
-import javax.swing.JOptionPane;
-
 import org.eclipse.jface.dialogs.MessageDialog;
 
+import javax.swing.*;
+import java.util.function.Predicate;
+
 /**
- * Provides some method of showing input dialogs.
- * 
+ * Provides some method of showing message dialogs.
+ *
  * @author Andy Cheung
  */
 public final class CommonDialogs {
 
+    private CommonDialogs() {
+        throw new UnsupportedOperationException("No instance of 'CommonDialogs' for you! ");
+    }
+
     /**
      * Show input dialog.
-     * @param askMessage The message of the dialog.
+     *
+     * @param askMessage   The message of the dialog.
      * @param errorMessage Message to tell user if the input is not correct.
      * @return The user input.
      * @implNote The message dialog is produced by JOptionPane.
@@ -43,9 +47,10 @@ public final class CommonDialogs {
 
     /**
      * Show input dialog.
+     *
      * @param defaultString The default value of the dialog text area.
-     * @param askMessage The message of the dialog.
-     * @param errorMessage Message to tell user if the input is empty.
+     * @param askMessage    The message of the dialog.
+     * @param errorMessage  Message to tell user if the input is empty.
      * @return The user input.
      * @implNote The message dialog is produced by JOptionPane.
      */
@@ -55,15 +60,16 @@ public final class CommonDialogs {
 
     /**
      * Show input dialog.
+     *
      * @param defaultString The default value of the dialog text area.
-     * @param askMessage The message of the dialog.
-     * @param errorMessage Message to tell user if the input is not correct.
-     * @param filter The filter to check the input.
+     * @param askMessage    The message of the dialog.
+     * @param errorMessage  Message to tell user if the input is not correct.
+     * @param filter        The filter to check the input.
      * @return The user input.
      * @implNote The message dialog is produced by JOptionPane.
      */
     public static String inputDialog(String defaultString, String askMessage, String errorMessage,
-            Predicate<String> filter) {
+                                     Predicate<String> filter) {
         String response;
         int counter = 0;
 
@@ -83,15 +89,17 @@ public final class CommonDialogs {
 
     /**
      * Show error dialog.
+     *
      * @param message The message to display.
      * @implNote The message dialog is produced by JFace.
      */
     public static void errorDialog(String message) {
         MessageDialog.openError(null, "错误", message);
     }
-    
+
     /**
      * Show error dialog.
+     *
      * @param message The message to display.
      * @implNote The message dialog is produced by Swing.
      */

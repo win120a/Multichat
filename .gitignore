@@ -89,3 +89,5 @@ target/
 
 # File templates of IDEA.
 .idea/fileTemplates/
+
+webClient.war

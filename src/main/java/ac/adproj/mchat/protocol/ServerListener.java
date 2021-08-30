@@ -17,6 +17,16 @@
 
 package ac.adproj.mchat.protocol;
 
+import ac.adproj.mchat.handler.Handler;
+import ac.adproj.mchat.handler.ServerMessageHandler;
+import ac.adproj.mchat.model.Protocol;
+import ac.adproj.mchat.model.User;
+import ac.adproj.mchat.service.MessageDistributor;
+import ac.adproj.mchat.service.UserManager;
+import ac.adproj.mchat.service.UserNameQueryService;
+import ac.adproj.mchat.ui.CommonDialogs;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.lang.ref.SoftReference;
 import java.net.InetSocketAddress;
@@ -26,28 +36,15 @@ import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
-import ac.adproj.mchat.handler.Handler;
-import ac.adproj.mchat.handler.ServerMessageHandler;
-import ac.adproj.mchat.model.Protocol;
-import ac.adproj.mchat.model.User;
-import ac.adproj.mchat.service.MessageDistributor;
-import ac.adproj.mchat.service.UserManager;
-import ac.adproj.mchat.service.UserNameQueryService;
-import ac.adproj.mchat.ui.CommonDialogs;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Listener class of Chatting Server.
  * 
  * @author Andy Cheung
  */
+@Slf4j
 public class ServerListener implements Listener {
 
     private AsynchronousServerSocketChannel serverSocketChannel = null;
@@ -56,7 +53,7 @@ public class ServerListener implements Listener {
     private UserManager userManager;
     private UserNameQueryService usernameQueryService;
 
-    private int threadNumber = 0;
+    private AtomicInteger threadNumber = new AtomicInteger(0);
 
     private static ServerListener instance;
 
@@ -85,13 +82,13 @@ public class ServerListener implements Listener {
 
             bb.flip();
 
-            StringBuffer sbuffer = new StringBuffer();
+            StringBuilder messageStringBuilder = new StringBuilder();
 
             while (bb.hasRemaining()) {
-                sbuffer.append(StandardCharsets.UTF_8.decode(bb));
+                messageStringBuilder.append(StandardCharsets.UTF_8.decode(bb));
             }
 
-            String message = handler.handleMessage(sbuffer.toString(), channel);
+            String message = handler.handleMessage(messageStringBuilder.toString(), channel);
 
             try {
                 MessageDistributor.getInstance().sendUiMessage(message);
@@ -116,10 +113,9 @@ public class ServerListener implements Listener {
 
         ThreadFactory threadFactory = r -> {
             if (!r.getClass().getName().contains("DuplicateCheckerService")) {
-                threadNumber++;
-                return new Thread(r, "PoolThread - SrvListener - " + threadNumber);
+                return new Thread(r, "PoolThread - SrvListener - " + threadNumber.incrementAndGet());
             } else {
-                return new Thread(r, "PoolThread - DCS - " + threadNumber);
+                return new Thread(r, "PoolThread - DCS - " + threadNumber.incrementAndGet());
             }
         };
 
@@ -139,7 +135,7 @@ public class ServerListener implements Listener {
                 final ByteBuffer bb = ByteBuffer.allocate(Protocol.BUFFER_SIZE);
 
                 /* Handle messages. */
-                result.read(bb, result, new CompletionHandler<Integer, AsynchronousSocketChannel>() {
+                result.read(bb, result, new CompletionHandler<>() {
 
                     @Override
                     public void completed(Integer result, AsynchronousSocketChannel channel) {
@@ -152,7 +148,7 @@ public class ServerListener implements Listener {
 
                     @Override
                     public void failed(Throwable exc, AsynchronousSocketChannel channel) {
-                        exc.printStackTrace();
+                        log.error("Error when receiving message.", exc);
 
                         SoftReference<User> sr = null;
 
@@ -171,23 +167,19 @@ public class ServerListener implements Listener {
                     }
                 });
 
-                serverSocketChannel.accept(this, this);
+                serverSocketChannel.accept(ServerListener.this, this);
             }
 
             @Override
             public void failed(Throwable exc, Object o) {
-                exc.printStackTrace();
+                log.error("Error when accepting socket connection.", exc);
             }
         });
     }
 
     @Override
     public boolean isConnected() {
-        if (userManager.isEmptyUserProfile()) {
-            return false;
-        } else {
-            return true;
-        }
+        return !userManager.isEmptyUserProfile();
     }
 
     @Override
@@ -203,7 +195,7 @@ public class ServerListener implements Listener {
                         u.getChannel().write(bb).get();
                     }
                 } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
+                    log.error("Got error when sending message.", e);
                     CommonDialogs.errorDialog("发送信息出错: " + e.getMessage());
                 }
             }
@@ -211,6 +203,7 @@ public class ServerListener implements Listener {
             try {
                 userManager.lookup(uuid).getChannel().write(bb).get();
             } catch (InterruptedException | ExecutionException e) {
+                log.error("Got error when sending message.", e);
                 e.printStackTrace();
             }
         }
@@ -227,8 +220,8 @@ public class ServerListener implements Listener {
         userManager.deleteUserProfile(uuid);
     }
 
-    public void disconnectAll() throws IOException {
-        userManager.userProfileValueSet().forEach((value) -> {
+    public void disconnectAll() {
+        userManager.userProfileValueSet().forEach(value -> {
             try {
                 final ByteBuffer bb = ByteBuffer
                         .wrap((Protocol.DISCONNECT + "SERVER").getBytes(StandardCharsets.UTF_8));

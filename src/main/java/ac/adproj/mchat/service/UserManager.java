@@ -17,63 +17,61 @@
 
 package ac.adproj.mchat.service;
 
-import java.nio.channels.AsynchronousSocketChannel;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import ac.adproj.mchat.model.User;
+
+import java.nio.channels.AsynchronousSocketChannel;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * <p>
  * User Manager.
  * </p>
- * 
+ *
  * <p>
- * Intended to share user register information between TCP server & WebSocket
+ * Intended to share user registration information between TCP server & WebSocket
  * Server.
  * </p>
- * 
+ *
  * <p>
- * <b>Implementation Note: Although the user names is shared between TCP and
+ * <b>Implementation Note: Although usernames are shared between TCP and
  * WebSocket server,</b> <b>the user information of WebSocket Server isn't
  * managed by this class.</b><br />
  * </p>
- * 
+ *
  * @author Andy Cheung
  * @since 2020.5.24
  */
 public class UserManager implements Iterable<User> {
-    private static UserManager instance;
 
-    /**
-     * Obtain the only instance.
-     * 
-     * @return The instance.
-     */
-    public static UserManager getInstance() {
-        if (instance == null) {
-            instance = new UserManager();
-        }
 
-        return instance;
-    }
+    private final Map<String, User> userProfile;
 
-    private Map<String, User> userProfile;
-
-    private Set<String> names;
+    private final Set<String> names;
 
     // Store the reserved names.
-    private Set<String> reservedNames;
+    private final Set<String> reservedNames;
 
     private UserManager() {
         userProfile = new ConcurrentHashMap<>(16);
         names = Collections.synchronizedSet(new HashSet<>());
         reservedNames = Collections.synchronizedSet(new HashSet<>());
+    }
+
+    /**
+     * Holder of the instance.
+     */
+    private static class Holder {
+        static UserManager instance = new UserManager();
+    }
+
+    /**
+     * Obtain the only instance.
+     *
+     * @return The instance.
+     */
+    public static UserManager getInstance() {
+        return Holder.instance;
     }
 
     /**
@@ -85,9 +83,9 @@ public class UserManager implements Iterable<User> {
     }
 
     /**
-     * Query the user name whether exists or not.
-     * 
-     * @param name User name to query.
+     * Query the username whether exists or not.
+     *
+     * @param name Username to query.
      * @return True if exists.
      */
     public boolean containsName(String name) {
@@ -96,8 +94,8 @@ public class UserManager implements Iterable<User> {
 
     /**
      * Query the user UUID whether exists or not.
-     * 
-     * @param name UUID to query.
+     *
+     * @param uuid UUID to query.
      * @return True if exists.
      */
     public boolean containsUuid(String uuid) {
@@ -106,7 +104,7 @@ public class UserManager implements Iterable<User> {
 
     /**
      * Delete the user profile corresponding to the UUID,
-     * 
+     *
      * @param uuid The UUID.
      * @return True if delete successfully.
      */
@@ -116,10 +114,10 @@ public class UserManager implements Iterable<User> {
     }
 
     /**
-     * Obtain the user name corresponding to UUID.
-     * 
+     * Obtain the username corresponding to UUID.
+     *
      * @param uuid The UUID.
-     * @return The corresponding user name, or null if UUID not exists.
+     * @return The corresponding username, or null if UUID not exists.
      */
     public String getName(String uuid) {
         return lookup(uuid).getName();
@@ -127,7 +125,7 @@ public class UserManager implements Iterable<User> {
 
     /**
      * True if the user register profile is empty.
-     * 
+     *
      * @return True if empty.
      */
     public boolean isEmptyUserProfile() {
@@ -138,9 +136,9 @@ public class UserManager implements Iterable<User> {
      * <p>
      * Obtain the read-only view of User object collection.
      * </p>
-     * 
+     *
      * <p>
-     * <b>Don't invoke remove() method of the iterator, it will cause exception.</b>
+     * <b>The remove() method of the iterator is not supported.</b>
      * </p>
      */
     @Override
@@ -150,7 +148,7 @@ public class UserManager implements Iterable<User> {
 
     /**
      * Obtain the corresponding User object from UUID.
-     * 
+     *
      * @param uuid UUID
      * @return The corresponding User object, or null if UUID not exists.
      */
@@ -160,9 +158,9 @@ public class UserManager implements Iterable<User> {
 
     /**
      * Create a new User object, and register it to the user profile list.
-     * 
+     *
      * @param uuid    UUID
-     * @param name    User name
+     * @param name    Username
      * @param channel Remote TCP socket channel
      */
     public void register(String uuid, String name, AsynchronousSocketChannel channel) {
@@ -171,7 +169,7 @@ public class UserManager implements Iterable<User> {
 
     /**
      * Register the specified User object to the user profile list.
-     * 
+     *
      * @param u The User object.
      */
     public void register(User u) {
@@ -180,29 +178,29 @@ public class UserManager implements Iterable<User> {
     }
 
     /**
-     * Register user name, but not to associate with User object. (Reserve User
-     * name, Intended for WebSocket Service.)
-     * 
+     * Register username, but not to associate with User object. (Reserve Username,
+     * Intended for WebSocket Service.)
+     *
      * @param name The user name.
      * @return True if registered successfully.
      */
     public boolean reserveName(String name) {
-        if (!names.contains(name) && !names.contains(name)) {
-            return names.add(name) & reservedNames.add(name);
+        if (!names.contains(name) && !reservedNames.contains(name)) {
+            return names.add(name) && reservedNames.add(name);
         }
 
         return false;
     }
 
     /**
-     * Remove the reservation of user name.
-     * 
-     * @param name User name
+     * Remove the reservation of username.
+     *
+     * @param name The username
      * @return Whether the removal is success
      */
     public boolean undoReserveName(String name) {
         if (reservedNames.contains(name) && names.contains(name)) {
-            return reservedNames.remove(name) & names.remove(name);
+            return reservedNames.remove(name) && names.remove(name);
         }
 
         return false;
@@ -217,8 +215,8 @@ public class UserManager implements Iterable<User> {
     }
 
     /**
-     * Return the read-only view of the User object collection.  
-     * 
+     * Return the read-only view of the User object collection.
+     *
      * @return Read-only User object collection.
      */
     public Collection<User> userProfileValueSet() {

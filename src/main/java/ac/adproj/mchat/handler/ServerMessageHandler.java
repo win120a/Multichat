@@ -17,24 +17,27 @@
 
 package ac.adproj.mchat.handler;
 
+import ac.adproj.mchat.model.Protocol;
+import ac.adproj.mchat.model.User;
+import ac.adproj.mchat.protocol.ServerListener;
+import ac.adproj.mchat.service.UserManager;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.lang.ref.SoftReference;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
-
-import ac.adproj.mchat.model.Protocol;
-import ac.adproj.mchat.model.User;
-import ac.adproj.mchat.protocol.ServerListener;
-import ac.adproj.mchat.service.UserManager;
+import java.util.concurrent.Future;
 
 /**
  * Message Handler of Server.
- * 
+ *
  * @author Andy Cheung
  * @since 2020/5/24
  */
+@Slf4j
 public class ServerMessageHandler implements Handler {
     private UserManager userManager = UserManager.getInstance();
     private ServerListener listener;
@@ -51,7 +54,8 @@ public class ServerMessageHandler implements Handler {
         switch (msgTyp) {
             case REGISTER:
                 String[] data = message.replace(Protocol.CONNECTING_GREET_LEFT_HALF, "")
-                        .replace(Protocol.CONNECTING_GREET_RIGHT_HALF, "").split(Protocol.CONNECTING_GREET_MIDDLE_HALF);
+                        .replace(Protocol.CONNECTING_GREET_RIGHT_HALF, "")
+                        .split(Protocol.CONNECTING_GREET_MIDDLE_HALF);
 
                 String uuid = data[0];
                 String name = data[1];
@@ -67,13 +71,13 @@ public class ServerMessageHandler implements Handler {
                 return "";
 
             case LOGOFF:
-                SoftReference<String> uuid_logoff = new SoftReference<String>(message.replace(Protocol.DISCONNECT, ""));
+                SoftReference<String> uuidToLogoff = new SoftReference<>(message.replace(Protocol.DISCONNECT, ""));
 
                 try {
-                    System.out.println("Disconnecting: " + uuid_logoff.get());
-                    listener.disconnect(uuid_logoff.get());
+                    log.info("Disconnecting: " + uuidToLogoff.get());
+                    listener.disconnect(uuidToLogoff.get());
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    log.error("Error when handling the logoff of uid: " + uuidToLogoff.get(), e);
                 }
 
                 return "Client: " + message.replace(Protocol.DISCONNECT, "") + " Disconnected.";
@@ -81,7 +85,8 @@ public class ServerMessageHandler implements Handler {
             case INCOMING_MESSAGE:
 
                 String[] messageData = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
-                        .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "").split(Protocol.MESSAGE_HEADER_MIDDLE_HALF);
+                        .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "")
+                        .split(Protocol.MESSAGE_HEADER_MIDDLE_HALF);
 
                 if (messageData.length < 2) {
                     return "";
@@ -95,13 +100,25 @@ public class ServerMessageHandler implements Handler {
                 ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
 
                 for (User u : userManager.userProfileValueSet()) {
+
+                    Future<Integer> futureOfWriting;
+
                     try {
                         if (!fromUuid.equals(u.getUuid())) {
                             bb.rewind();
-                            u.getChannel().write(bb).get();
+                            futureOfWriting = u.getChannel().write(bb);
+                            futureOfWriting.get();
                         }
-                    } catch (InterruptedException | ExecutionException e) {
-                        e.printStackTrace();
+                    } catch (InterruptedException interruptedException) {
+
+                        // Propagate the interruption status.
+                        Thread.currentThread().interrupt();
+
+                        log.error("Got interrupted when waiting for message sent.", interruptedException);
+
+                    } catch (ExecutionException executionException) {
+
+                        log.error("Exception occurred when waiting for message sent.", executionException);
                     }
                 }
 

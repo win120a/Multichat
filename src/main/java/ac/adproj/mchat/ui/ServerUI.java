@@ -17,15 +17,15 @@
 
 package ac.adproj.mchat.ui;
 
-import java.io.IOException;
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.swt.widgets.Display;
-
 import ac.adproj.mchat.model.Protocol;
 import ac.adproj.mchat.protocol.ServerListener;
 import ac.adproj.mchat.service.CommonThreadPool;
 import ac.adproj.mchat.service.MessageDistributor;
 import ac.adproj.mchat.web.WebServerStarter;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.swt.widgets.Display;
+
+import java.io.IOException;
 
 public class ServerUI extends BaseChattingUI {
     private ServerListener listener;
@@ -33,11 +33,9 @@ public class ServerUI extends BaseChattingUI {
     private void initListener() throws IOException {
         listener = ServerListener.getInstance();
         
-        MessageDistributor.getInstance().registerSubscriber((message) ->  {
-            this.getDisplay().asyncExec(() -> {
-                appendMessageDisplay(message);
-            });
-        });
+        MessageDistributor.getInstance().registerSubscriber(message -> this.getDisplay().asyncExec(() -> {
+            appendMessageDisplay(message);
+        }));
     }
 
     @Override
@@ -58,13 +56,8 @@ public class ServerUI extends BaseChattingUI {
             MessageDialog.openError(ServerUI.this, "出错", "没有连接到客户端。");
             return;
         }
-        
-        try {
-            listener.disconnectAll();
-        } catch (IOException e) {
-            e.printStackTrace();
-            MessageDialog.openError(ServerUI.this, "出错", "断开失败：" + e.getMessage());
-        }
+
+        listener.disconnectAll();
     }
 
     public static void main(String[] args) throws Exception {

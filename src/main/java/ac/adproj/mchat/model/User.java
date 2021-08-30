@@ -17,57 +17,31 @@
 
 package ac.adproj.mchat.model;
 
+import lombok.Data;
+
 import java.nio.channels.AsynchronousSocketChannel;
-import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Data class that wraps the user information.
- * 
+ *
  * @author Andy Cheung
  * @date 2020-4-27
  */
+@Data
 public final class User {
     private String uuid;
+
     private AsynchronousSocketChannel channel;
+
     private String name;
+
+    private AtomicLong keepAlivePackageTimestamp;
 
     public User(String uuid, AsynchronousSocketChannel channel, String name) {
         super();
         this.uuid = uuid;
         this.channel = channel;
         this.name = name;
-    }
-
-    public String getUuid() {
-        return uuid;
-    }
-
-    public AsynchronousSocketChannel getChannel() {
-        return channel;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(uuid);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-
-        User other = (User) obj;
-        return Objects.equals(uuid, other.uuid);
     }
 }
