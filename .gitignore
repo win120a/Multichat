@@ -49,3 +49,9 @@ hs_err_pid*
 
 # Javadoc
 doc/
+
+/testBin/
+/.idea/sonarlint/
+/.idea/sonarlint*
+
+target/

@@ -25,7 +25,7 @@ import ac.adproj.mchat.service.MessageDistributor;
 import ac.adproj.mchat.web.WebServerStarter;
 
 /**
- * Provides a simplest user interface that only uses console to produce output. 
+ * Provides the simplest user interface that only uses console to produce output. 
  * 
  * @author Andy Cheung
  */
