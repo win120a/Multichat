@@ -40,7 +40,7 @@ public interface Listener extends Protocol, AutoCloseable {
      * Send raw protocol message.
      * 
      * @param text The raw protocol message.
-     * @param uuid    The user's UUID.
+     * @param uuid    The destination user's UUID.
      */
     void sendCommunicationData(String text, String uuid);
 

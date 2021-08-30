@@ -19,6 +19,7 @@ package ac.adproj.mchat.protocol;
 
 import ac.adproj.mchat.handler.ClientMessageHandler;
 import ac.adproj.mchat.model.Protocol;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
@@ -33,6 +34,7 @@ import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -42,23 +44,18 @@ import java.util.function.Consumer;
  *
  * @author Andy Cheung
  */
+@Slf4j
 public class ClientListener implements Listener {
+    private final ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2);
     private AsynchronousSocketChannel socketChannel;
     private String uuid;
     private String name;
-
-    private final ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2);
+    private ScheduledFuture<?> scheduledFutureOfKeepAliveSender;
 
     public ClientListener(Shell shell, Consumer<String> uiActions, byte[] address, int port, String username)
             throws IOException {
         this.name = username;
         init(shell, uiActions, address, port, username);
-    }
-
-    private void registerKeepaliveSender() {
-        scheduledThreadPoolExecutor.schedule(() -> {
-            sendCommunicationData(Protocol.KEEP_ALIVE_HEADER + "", uuid);
-        }, 30, TimeUnit.SECONDS);
     }
 
     public static boolean checkNameDuplicates(byte[] serverAddress, String name) throws IOException {
@@ -93,6 +90,17 @@ public class ClientListener implements Listener {
         } finally {
             dc.close();
         }
+    }
+
+    private void registerKeepaliveSender() {
+        scheduledFutureOfKeepAliveSender = scheduledThreadPoolExecutor.scheduleWithFixedDelay(() -> {
+            if (log.isDebugEnabled()) {
+                log.debug("Sending KA message...");
+            }
+
+            sendCommunicationData(Protocol.KEEP_ALIVE_HEADER + uuid + Protocol.KEEP_ALIVE_TAIL, "");
+
+        }, 0, 3, TimeUnit.SECONDS);
     }
 
     private void init(Shell shell, Consumer<String> uiActions, byte[] address, int port, String username)
@@ -231,6 +239,8 @@ public class ClientListener implements Listener {
             sendCommunicationData(DISCONNECT + uuid, uuid);
             socketChannel.close();
             socketChannel = null;
+            scheduledFutureOfKeepAliveSender.cancel(false);
+            scheduledThreadPoolExecutor.shutdownNow();
         }
     }
 
@@ -238,6 +248,8 @@ public class ClientListener implements Listener {
         if (isConnected()) {
             socketChannel.close();
             socketChannel = null;
+            scheduledFutureOfKeepAliveSender.cancel(false);
+            scheduledThreadPoolExecutor.shutdownNow();
         }
     }
 

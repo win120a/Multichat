@@ -102,7 +102,8 @@ public enum MessageType {
     KEEP_ALIVE(Protocol.KEEP_ALIVE_HEADER) {
         @Override
         public Map<String, String> tokenize(String message) {
-            return null;
+            return Map.of("uuid", message.replace(Protocol.KEEP_ALIVE_HEADER, "")
+                    .replace(Protocol.KEEP_ALIVE_TAIL, ""));
         }
     },
 

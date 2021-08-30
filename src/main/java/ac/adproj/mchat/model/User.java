@@ -43,5 +43,6 @@ public final class User {
         this.uuid = uuid;
         this.channel = channel;
         this.name = name;
+        this.keepAlivePackageTimestamp = new AtomicLong(System.currentTimeMillis());
     }
 }

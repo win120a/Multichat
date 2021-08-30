@@ -125,6 +125,10 @@ public class ServerMessageHandler implements Handler {
                 message = userManager.getName(fromUuid) + ": " + messageText;
                 break;
 
+            case KEEP_ALIVE:
+                log.info("Got KA message from UUID: {}", msgTyp.tokenize(message).get("uuid"));
+                break;
+
             case UNKNOWN:
             default:
                 return message;
