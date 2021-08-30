@@ -49,7 +49,7 @@ public class ClientListener implements Listener {
     private final ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2);
     private AsynchronousSocketChannel socketChannel;
     private String uuid;
-    private String name;
+    private final String name;
     private ScheduledFuture<?> scheduledFutureOfKeepAliveSender;
 
     public ClientListener(Shell shell, Consumer<String> uiActions, byte[] address, int port, String username)
@@ -73,9 +73,7 @@ public class ClientListener implements Listener {
             dc.send(bb, new InetSocketAddress(InetAddress.getByAddress(serverAddress), Protocol.SERVER_CHECK_DUPLICATE_PORT));
 
             bb.clear();
-
             dc.receive(bb);
-
             bb.flip();
 
             while (bb.hasRemaining()) {
@@ -132,18 +130,7 @@ public class ClientListener implements Listener {
 
             @Override
             public void completed(Void result, String attachment) {
-                String greetMessage = CONNECTING_GREET_LEFT_HALF + attachment + CONNECTING_GREET_MIDDLE_HALF + username;
-                final ByteBuffer greetBuffer = ByteBuffer.wrap(greetMessage.getBytes());
-
-                try {
-                    socketChannel.write(greetBuffer).get();
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
-                }
-
-                shell.getDisplay().syncExec(() -> {
-                    uiActions.accept("Connected to Server, UserName: " + username + ", UUID: " + uuid);
-                });
+                sendGreetingMessage(attachment, username, shell, uiActions);
 
                 final ByteBuffer buffer = ByteBuffer.allocate(Protocol.BUFFER_SIZE);
 
@@ -199,6 +186,20 @@ public class ClientListener implements Listener {
         });
     }
 
+    private void sendGreetingMessage(String attachment, String username, Shell shell, Consumer<String> uiActions) {
+        String greetMessage = CONNECTING_GREET_LEFT_HALF + attachment + CONNECTING_GREET_MIDDLE_HALF + username;
+        final ByteBuffer greetBuffer = ByteBuffer.wrap(greetMessage.getBytes());
+
+        try {
+            socketChannel.write(greetBuffer).get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+
+        shell.getDisplay().syncExec(() ->
+                uiActions.accept("Connected to Server, UserName: " + username + ", UUID: " + uuid));
+    }
+
     public String getUuid() {
         return uuid;
     }
@@ -237,10 +238,7 @@ public class ClientListener implements Listener {
     public void disconnect() throws IOException {
         if (isConnected()) {
             sendCommunicationData(DISCONNECT + uuid, uuid);
-            socketChannel.close();
-            socketChannel = null;
-            scheduledFutureOfKeepAliveSender.cancel(false);
-            scheduledThreadPoolExecutor.shutdownNow();
+            disconnectWithoutNotification();
         }
     }
 

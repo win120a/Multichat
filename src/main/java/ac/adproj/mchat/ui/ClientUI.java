@@ -17,21 +17,20 @@
 
 package ac.adproj.mchat.ui;
 
-import static ac.adproj.mchat.ui.CommonDialogs.*;
+import ac.adproj.mchat.protocol.ClientListener;
+import org.eclipse.swt.widgets.Display;
 
 import java.io.IOException;
 
-import org.eclipse.swt.widgets.Display;
-
-import ac.adproj.mchat.model.Protocol;
-import ac.adproj.mchat.protocol.ClientListener;
+import static ac.adproj.mchat.ui.CommonDialogs.errorDialog;
+import static ac.adproj.mchat.ui.CommonDialogs.inputDialog;
 
 public class ClientUI extends BaseChattingUI {
     private ClientListener listener;
     
     public void initListener(byte[] ipAddress, int port, String userName) throws IOException {
         if (!ClientListener.checkNameDuplicates(ipAddress, userName)) {
-            listener = new ClientListener(this, (message) -> appendMessageDisplay(message), ipAddress, port, userName);
+            listener = new ClientListener(this, this::appendMessageDisplay, ipAddress, port, userName);
         } else {
             errorDialog("用户名重复了！");
             initListener(ipAddress, port, getUserName());
