@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.regex.Pattern;
 
+import static ac.adproj.mchat.model.Protocol.*;
+
 /**
  * Message Handler of Server.
  *
@@ -40,10 +42,9 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 public class ServerMessageHandler implements Handler {
-    private UserManager userManager = UserManager.getInstance();
-    private ServerListener listener;
-
     private static final Pattern PATTERN_OF_PRIVATE_CHATTING_MESSAGE = Pattern.compile("[@].*[#]");
+    private final UserManager userManager = UserManager.getInstance();
+    private final ServerListener listener;
 
     public ServerMessageHandler(ServerListener listener) {
         super();
@@ -87,9 +88,9 @@ public class ServerMessageHandler implements Handler {
 
             case INCOMING_MESSAGE:
 
-                String[] messageData = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
-                        .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "")
-                        .split(Protocol.MESSAGE_HEADER_MIDDLE_HALF);
+                String[] messageData = message.replace(MESSAGE_HEADER_LEFT_HALF, "")
+                        .replace(MESSAGE_HEADER_RIGHT_HALF, "")
+                        .split(MESSAGE_HEADER_MIDDLE_HALF);
 
                 if (messageData.length < 2) {
                     return "";
@@ -110,7 +111,17 @@ public class ServerMessageHandler implements Handler {
                     var targetUser = UserManager.getInstance().findUuidByName(target);
 
                     if (targetUser.isPresent()) {
-                        listener.sendMessage(nameOnlyMessage, targetUser.get());
+
+                        var um = UserManager.getInstance();
+
+                        messageText = messageText.split("[#]")[1];
+
+                        listener.sendCommunicationData(MESSAGE_HEADER_LEFT_HALF +
+                                um.getName(fromUuid) + " -> " + um.getName(targetUser.get()) + " (私聊)" +
+                                MESSAGE_HEADER_MIDDLE_HALF + MESSAGE_HEADER_RIGHT_HALF +
+                                messageText,
+                                targetUser.get());
+
                     } else {
                         listener.sendMessage("INVALID username", fromUuid);
                     }
