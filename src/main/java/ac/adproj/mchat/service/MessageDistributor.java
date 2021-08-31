@@ -17,12 +17,13 @@
 
 package ac.adproj.mchat.service;
 
+import ac.adproj.mchat.handler.MessageType;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-
-import ac.adproj.mchat.handler.MessageType;
 
 /**
  * Provide the functionality of broadcasting message to many subscribers. 
@@ -31,12 +32,14 @@ import ac.adproj.mchat.handler.MessageType;
  * @author Andy Cheung
  * @since 2020.5.24
  */
+@Slf4j
 public class MessageDistributor {
-    // "Hungry man" singleton mechanism.
-    private static MessageDistributor instance;
 
-    static {
-        instance = new MessageDistributor();
+    /**
+     * Holder of instance.
+     */
+    private static class Holder {
+        private static MessageDistributor INSTANCE = new MessageDistributor();
     }
 
     private MessageDistributor() {
@@ -51,10 +54,11 @@ public class MessageDistributor {
      * @return The instance.
      */
     public static MessageDistributor getInstance() {
-        return instance;
+        return Holder.INSTANCE;
     }
 
     private BlockingQueue<String> uiMessages;
+
     private LinkedList<SubscriberCallback> callbacks;
 
     /**
@@ -73,12 +77,15 @@ public class MessageDistributor {
                         cb.onMessageReceived(message);
                     }
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+
                     // Stops when the thread is interrupted.
                     break;
+
                 } catch (Exception e) {
                     // Other problems, print the exception information and continue.
-                    e.printStackTrace();
-                    continue;
+
+                    log.error("Error occurred when distributing message.", e);
                 }
             }
         }

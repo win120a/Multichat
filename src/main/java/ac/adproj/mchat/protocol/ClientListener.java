@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -46,7 +47,12 @@ import java.util.function.Consumer;
  */
 @Slf4j
 public class ClientListener implements Listener {
-    private final ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2);
+    private final AtomicInteger threadNumberOfScheduledThread = new AtomicInteger(0);
+
+    private final ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2,
+            r -> new Thread(r, "Scheduled Thread Pooling Thread - " +
+                    threadNumberOfScheduledThread.getAndIncrement()));
+
     private AsynchronousSocketChannel socketChannel;
     private String uuid;
     private final String name;
@@ -98,7 +104,7 @@ public class ClientListener implements Listener {
 
             sendCommunicationData(Protocol.KEEP_ALIVE_HEADER + uuid + Protocol.KEEP_ALIVE_TAIL, "");
 
-        }, 0, 3, TimeUnit.SECONDS);
+        }, 0, 10, TimeUnit.SECONDS);
     }
 
     private void init(Shell shell, Consumer<String> uiActions, byte[] address, int port, String username)
@@ -111,12 +117,12 @@ public class ClientListener implements Listener {
 
         uuid = UUID.randomUUID().toString();
 
-        initNIOSocketConnection(shell, uiActions, ia, username);
+        initNioSocketConnection(shell, uiActions, ia, username);
 
         registerKeepaliveSender();
     }
 
-    private void initNIOSocketConnection(Shell shell, Consumer<String> uiActions, InetAddress ia, String username) {
+    private void initNioSocketConnection(Shell shell, Consumer<String> uiActions, InetAddress ia, String username) {
         ClientMessageHandler handler = new ClientMessageHandler(v -> {
             try {
                 disconnectWithoutNotification();

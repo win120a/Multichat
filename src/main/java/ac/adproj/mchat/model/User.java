@@ -17,7 +17,9 @@
 
 package ac.adproj.mchat.model;
 
+import lombok.AccessLevel;
 import lombok.Data;
+import lombok.Setter;
 
 import java.nio.channels.AsynchronousSocketChannel;
 import java.util.concurrent.atomic.AtomicLong;
@@ -36,6 +38,7 @@ public final class User {
 
     private String name;
 
+    @Setter(value = AccessLevel.PRIVATE)
     private AtomicLong keepAlivePackageTimestamp;
 
     public User(String uuid, AsynchronousSocketChannel channel, String name) {

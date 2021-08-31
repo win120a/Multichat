@@ -30,6 +30,7 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.regex.Pattern;
 
 /**
  * Message Handler of Server.
@@ -41,6 +42,8 @@ import java.util.concurrent.Future;
 public class ServerMessageHandler implements Handler {
     private UserManager userManager = UserManager.getInstance();
     private ServerListener listener;
+
+    private static final Pattern PATTERN_OF_PRIVATE_CHATTING_MESSAGE = Pattern.compile("[@].*[#]");
 
     public ServerMessageHandler(ServerListener listener) {
         super();
@@ -94,31 +97,47 @@ public class ServerMessageHandler implements Handler {
 
                 String fromUuid = messageData[0];
                 String messageText = messageData[1];
-
                 String nameOnlyMessage = message.replace(fromUuid, userManager.getName(fromUuid));
 
-                ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
+                var matcherOfMessageText = PATTERN_OF_PRIVATE_CHATTING_MESSAGE.matcher(messageText);
 
-                for (User u : userManager.userProfileValueSet()) {
+                // Private chatting message.
+                if (matcherOfMessageText.find()) {
+                    var target = matcherOfMessageText.group()
+                            .replace("@", "")
+                            .replace("#", "");
 
-                    Future<Integer> futureOfWriting;
+                    var targetUser = UserManager.getInstance().findUuidByName(target);
 
-                    try {
-                        if (!fromUuid.equals(u.getUuid())) {
-                            bb.rewind();
-                            futureOfWriting = u.getChannel().write(bb);
-                            futureOfWriting.get();
+                    if (targetUser.isPresent()) {
+                        listener.sendMessage(nameOnlyMessage, targetUser.get());
+                    } else {
+                        listener.sendMessage("INVALID username", fromUuid);
+                    }
+                } else {
+                    ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
+
+                    for (User u : userManager.userProfileValueSet()) {
+
+                        Future<Integer> futureOfWriting;
+
+                        try {
+                            if (!fromUuid.equals(u.getUuid())) {
+                                bb.rewind();
+                                futureOfWriting = u.getChannel().write(bb);
+                                futureOfWriting.get();
+                            }
+                        } catch (InterruptedException interruptedException) {
+
+                            // Propagate the interruption status.
+                            Thread.currentThread().interrupt();
+
+                            log.error("Got interrupted when waiting for message sent.", interruptedException);
+
+                        } catch (ExecutionException executionException) {
+
+                            log.error("Exception occurred when waiting for message sent.", executionException);
                         }
-                    } catch (InterruptedException interruptedException) {
-
-                        // Propagate the interruption status.
-                        Thread.currentThread().interrupt();
-
-                        log.error("Got interrupted when waiting for message sent.", interruptedException);
-
-                    } catch (ExecutionException executionException) {
-
-                        log.error("Exception occurred when waiting for message sent.", executionException);
                     }
                 }
 
@@ -126,8 +145,23 @@ public class ServerMessageHandler implements Handler {
                 break;
 
             case KEEP_ALIVE:
-                log.info("Got KA message from UUID: {}", msgTyp.tokenize(message).get("uuid"));
-                break;
+                var keepAliveMessageUuid = msgTyp.tokenize(message).get("uuid");
+
+                if (userManager.containsUuid(keepAliveMessageUuid)) {
+                    log.info("Got KA message from UUID: {}", keepAliveMessageUuid);
+
+                    userManager.lookup(keepAliveMessageUuid)
+                            .getKeepAlivePackageTimestamp()
+                            .getAndUpdate(prev -> {
+                                long millis = System.currentTimeMillis();
+
+                                return Math.max(millis, prev);
+                            });
+
+                    System.out.println(userManager.lookup(keepAliveMessageUuid));
+                }
+
+                return "";
 
             case UNKNOWN:
             default:

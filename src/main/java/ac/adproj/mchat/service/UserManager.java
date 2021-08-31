@@ -49,20 +49,15 @@ public class UserManager implements Iterable<User> {
 
     private final Set<String> names;
 
-    // Store the reserved names.
+    /**
+     * Storage for the reserved names.
+     */
     private final Set<String> reservedNames;
 
     private UserManager() {
         userProfile = new ConcurrentHashMap<>(16);
         names = Collections.synchronizedSet(new HashSet<>());
         reservedNames = Collections.synchronizedSet(new HashSet<>());
-    }
-
-    /**
-     * Holder of the instance.
-     */
-    private static class Holder {
-        static UserManager instance = new UserManager();
     }
 
     /**
@@ -206,6 +201,15 @@ public class UserManager implements Iterable<User> {
         return false;
     }
 
+    public Optional<String> findUuidByName(String name) {
+        var optionalOfEntry = userProfile.entrySet()
+                .stream()
+                .filter(x -> x.getValue().getName().equals(name))
+                .findFirst();
+
+        return optionalOfEntry.map(Map.Entry::getKey);
+    }
+
     /**
      * Gather the String representation of registered user profile (TCP Server only).
      */
@@ -221,5 +225,12 @@ public class UserManager implements Iterable<User> {
      */
     public Collection<User> userProfileValueSet() {
         return Collections.unmodifiableCollection(userProfile.values());
+    }
+
+    /**
+     * Holder of the instance.
+     */
+    private static class Holder {
+        static UserManager instance = new UserManager();
     }
 }

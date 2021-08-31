@@ -18,20 +18,19 @@
 package ac.adproj.mchat.ui;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.widgets.Text;
-
-import ac.adproj.mchat.model.Protocol;
-
-import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Button;
-import org.eclipse.swt.layout.FormLayout;
-import org.eclipse.swt.layout.FormData;
-import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.layout.FormAttachment;
+import org.eclipse.swt.layout.FormData;
+import org.eclipse.swt.layout.FormLayout;
+import org.eclipse.swt.widgets.*;
 
+/**
+ * Client configuration dialog.
+ *
+ * @author SWT desinger
+ * @author Andy Cheung
+ */
 public class ClientConfigurationDialog extends Shell {
     private Text serverIP;
     private Text port;
@@ -155,7 +154,7 @@ public class ClientConfigurationDialog extends Shell {
         label.setLayoutData(fd_label);
         
         port = new Text(this, SWT.BORDER);
-        port.setText(Integer.toString(Protocol.CLIENT_DEFAULT_PORT));
+        port.setText("0");
         FormData fd_port = new FormData();
         fd_port.top = new FormAttachment(label, -3, SWT.TOP);
         fd_port.left = new FormAttachment(serverIP, 0, SWT.LEFT);

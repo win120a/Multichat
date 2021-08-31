@@ -1,11 +1,11 @@
 package ac.adproj.mchat.handler;
 
-import static ac.adproj.mchat.handler.MessageType.getMessageType;
+import ac.adproj.mchat.model.Protocol;
 
 import java.nio.channels.AsynchronousSocketChannel;
 import java.util.function.Consumer;
 
-import ac.adproj.mchat.model.Protocol;
+import static ac.adproj.mchat.handler.MessageType.getMessageType;
 
 /**
  * Message Handler of client.
@@ -34,10 +34,6 @@ public class ClientMessageHandler implements Handler {
                 message = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
                         .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "")
                         .replace(Protocol.MESSAGE_HEADER_MIDDLE_HALF, ": ");
-                break;
-
-            case REGISTER:
-                message = "";
                 break;
 
             case LOGOFF:

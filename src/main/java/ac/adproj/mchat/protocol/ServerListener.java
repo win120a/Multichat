@@ -21,6 +21,7 @@ import ac.adproj.mchat.handler.Handler;
 import ac.adproj.mchat.handler.ServerMessageHandler;
 import ac.adproj.mchat.model.Protocol;
 import ac.adproj.mchat.model.User;
+import ac.adproj.mchat.service.HeartbeatDetectingService;
 import ac.adproj.mchat.service.MessageDistributor;
 import ac.adproj.mchat.service.UserManager;
 import ac.adproj.mchat.service.UserNameQueryService;
@@ -41,25 +42,35 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Listener class of Chatting Server.
- * 
+ *
  * @author Andy Cheung
  */
 @Slf4j
 public class ServerListener implements Listener {
 
+    private static ServerListener instance;
     private AsynchronousServerSocketChannel serverSocketChannel = null;
-
     private ExecutorService threadPool;
     private UserManager userManager;
     private UserNameQueryService usernameQueryService;
-
     private AtomicInteger threadNumber = new AtomicInteger(0);
 
-    private static ServerListener instance;
+    private final AtomicInteger threadNumberOfScheduledThread = new AtomicInteger(0);
+
+    private ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2,
+            r -> new Thread(r, "Scheduled Thread Pooling Thread - " +
+                    threadNumberOfScheduledThread.getAndIncrement()));
+
+    private ScheduledFuture scheduledFutureOfHeartbeatDetectingService;
+
+    private ServerListener() throws IOException {
+        this.userManager = UserManager.getInstance();
+        init();
+    }
 
     /**
      * Obtain the only instance.
-     * 
+     *
      * @return The only instance.
      * @throws IOException If I/O Error occurs.
      */
@@ -71,9 +82,11 @@ public class ServerListener implements Listener {
         return instance;
     }
 
-    private ServerListener() throws IOException {
-        this.userManager = UserManager.getInstance();
-        init();
+    private void registerHeartbeatDetectingService() {
+
+        scheduledFutureOfHeartbeatDetectingService = scheduledThreadPoolExecutor
+                .scheduleWithFixedDelay(new HeartbeatDetectingService(this),
+                        0, 30, TimeUnit.SECONDS);
     }
 
     private void readMessage(ByteBuffer bb, Handler handler, Integer result, AsynchronousSocketChannel channel) {
@@ -175,6 +188,8 @@ public class ServerListener implements Listener {
                 log.error("Error when accepting socket connection.", exc);
             }
         });
+
+        registerHeartbeatDetectingService();
     }
 
     @Override
@@ -242,5 +257,7 @@ public class ServerListener implements Listener {
         threadPool.shutdownNow();
         userManager.clearAllProfiles();
         serverSocketChannel.close();
+
+        scheduledFutureOfHeartbeatDetectingService.cancel(false);
     }
 }
