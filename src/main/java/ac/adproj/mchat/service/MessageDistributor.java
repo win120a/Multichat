@@ -98,7 +98,7 @@ public class MessageDistributor {
      * @author Andy Cheung
      * @since 2020.5.24
      */
-    public static interface SubscriberCallback {
+    public interface SubscriberCallback {
         /**
          * Callback method.
          * 
