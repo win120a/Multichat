@@ -17,27 +17,22 @@
 
 package ac.adproj.mchat.web;
 
-import static ac.adproj.mchat.handler.MessageType.REGISTER;
-import static ac.adproj.mchat.handler.MessageType.USERNAME_QUERY_REQUEST;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.WebSocketListener;
-
 import ac.adproj.mchat.handler.MessageType;
 import ac.adproj.mchat.model.Protocol;
 import ac.adproj.mchat.protocol.ServerListener;
 import ac.adproj.mchat.service.MessageDistributor;
 import ac.adproj.mchat.service.MessageDistributor.SubscriberCallback;
 import ac.adproj.mchat.service.UserManager;
+import lombok.extern.slf4j.Slf4j;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketListener;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static ac.adproj.mchat.handler.MessageType.REGISTER;
+import static ac.adproj.mchat.handler.MessageType.USERNAME_QUERY_REQUEST;
 
 /**
  * Message Handler of WebSocket.
@@ -45,6 +40,7 @@ import ac.adproj.mchat.service.UserManager;
  * @author Andy Cheung
  * @since 2020/5/18
  */
+@Slf4j
 public class WebSocketHandler implements WebSocketListener {
     private Session session;
     private String uuid;
@@ -66,7 +62,6 @@ public class WebSocketHandler implements WebSocketListener {
         uuid = UUID.randomUUID().toString();
     }
 
-    
     public static class WebSocketBridge implements SubscriberCallback {
         @Override
         public void onMessageReceived(String uiMessage) {
@@ -80,8 +75,7 @@ public class WebSocketHandler implements WebSocketListener {
                 try {
                     conn.session.getRemote().sendString(uiMessage);
                 } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    log.error("Failed in sending websocket message in broadcasting. [UUID = " + conn.uuid + "]", e);
                 }
             }
         }
@@ -111,6 +105,7 @@ public class WebSocketHandler implements WebSocketListener {
     public void onWebSocketText(String message) {
         switch (MessageType.getMessageType(message)) {
             case DEBUG:
+            case KEEP_ALIVE:
                 break;
 
             case INCOMING_MESSAGE:
