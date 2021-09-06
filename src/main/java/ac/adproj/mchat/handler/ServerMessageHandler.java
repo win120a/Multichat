@@ -30,6 +30,7 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static ac.adproj.mchat.model.Protocol.*;
@@ -57,128 +58,150 @@ public class ServerMessageHandler implements Handler {
 
         switch (msgTyp) {
             case REGISTER:
-                String[] data = message.replace(Protocol.CONNECTING_GREET_LEFT_HALF, "")
-                        .replace(Protocol.CONNECTING_GREET_RIGHT_HALF, "")
-                        .split(Protocol.CONNECTING_GREET_MIDDLE_HALF);
-
-                String uuid = data[0];
-                String name = data[1];
-
-                User userObject = new User(uuid, channel, name);
-
-                userManager.register(userObject);
-
-                return "Client: " + uuid + " (" + name + ") Connected.";
+                return handleRegister(message, channel);
 
             case DEBUG:
                 System.out.println(userManager.toString());
                 return "";
 
             case LOGOFF:
-                SoftReference<String> uuidToLogoff = new SoftReference<>(message.replace(Protocol.DISCONNECT, ""));
-
-                try {
-                    log.info("Disconnecting: " + uuidToLogoff.get());
-                    listener.disconnect(uuidToLogoff.get());
-                } catch (IOException e) {
-                    log.error("Error when handling the logoff of uid: " + uuidToLogoff.get(), e);
-                }
-
-                return "Client: " + message.replace(Protocol.DISCONNECT, "") + " Disconnected.";
+                return handleLogoff(message);
 
             case INCOMING_MESSAGE:
-
-                String[] messageData = message.replace(MESSAGE_HEADER_LEFT_HALF, "")
-                        .replace(MESSAGE_HEADER_RIGHT_HALF, "")
-                        .split(MESSAGE_HEADER_MIDDLE_HALF);
-
-                if (messageData.length < 2) {
-                    return "";
-                }
-
-                String fromUuid = messageData[0];
-                String messageText = messageData[1];
-                String nameOnlyMessage = message.replace(fromUuid, userManager.getName(fromUuid));
-
-                var matcherOfMessageText = PATTERN_OF_PRIVATE_CHATTING_MESSAGE.matcher(messageText);
-
-                // Private chatting message.
-                if (matcherOfMessageText.find()) {
-                    var target = matcherOfMessageText.group()
-                            .replace("@", "")
-                            .replace("#", "");
-
-                    var targetUser = UserManager.getInstance().findUuidByName(target);
-
-                    if (targetUser.isPresent()) {
-
-                        var um = UserManager.getInstance();
-
-                        messageText = messageText.split("[#]")[1];
-
-                        listener.sendCommunicationData(MESSAGE_HEADER_LEFT_HALF +
-                                um.getName(fromUuid) + " -> " + um.getName(targetUser.get()) + " (私聊)" +
-                                MESSAGE_HEADER_MIDDLE_HALF + MESSAGE_HEADER_RIGHT_HALF +
-                                messageText,
-                                targetUser.get());
-
-                    } else {
-                        listener.sendMessage("INVALID username", fromUuid);
-                    }
-                } else {
-                    ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
-
-                    for (User u : userManager.userProfileValueSet()) {
-
-                        Future<Integer> futureOfWriting;
-
-                        try {
-                            if (!fromUuid.equals(u.getUuid())) {
-                                bb.rewind();
-                                futureOfWriting = u.getChannel().write(bb);
-                                futureOfWriting.get();
-                            }
-                        } catch (InterruptedException interruptedException) {
-
-                            // Propagate the interruption status.
-                            Thread.currentThread().interrupt();
-
-                            log.error("Got interrupted when waiting for message sent.", interruptedException);
-
-                        } catch (ExecutionException executionException) {
-
-                            log.error("Exception occurred when waiting for message sent.", executionException);
-                        }
-                    }
-                }
-
-                message = userManager.getName(fromUuid) + ": " + messageText;
-                break;
+                return handleIncomingMessage(message);
 
             case KEEP_ALIVE:
-                var keepAliveMessageUuid = msgTyp.tokenize(message).get("uuid");
-
-                if (userManager.containsUuid(keepAliveMessageUuid)) {
-                    log.info("Got KA message from UUID: {}", keepAliveMessageUuid);
-
-                    userManager.lookup(keepAliveMessageUuid)
-                            .getKeepAlivePackageTimestamp()
-                            .getAndUpdate(prev -> {
-                                long millis = System.currentTimeMillis();
-
-                                return Math.max(millis, prev);
-                            });
-
-                    System.out.println(userManager.lookup(keepAliveMessageUuid));
-                }
-
-                return "";
+                return handleKeepAlive(message);
 
             case UNKNOWN:
             default:
                 return message;
         }
+    }
 
+    private String handleRegister(String message, AsynchronousSocketChannel channel) {
+        String[] data = message.replace(Protocol.CONNECTING_GREET_LEFT_HALF, "")
+                .replace(Protocol.CONNECTING_GREET_RIGHT_HALF, "")
+                .split(Protocol.CONNECTING_GREET_MIDDLE_HALF);
+
+        String uuid = data[0];
+        String name = data[1];
+
+        User userObject = new User(uuid, channel, name);
+
+        userManager.register(userObject);
+
+        return "Client: " + uuid + " (" + name + ") Connected.";
+    }
+
+    private String handleKeepAlive(String message) {
+        var keepAliveMessageUuid = MessageType.KEEP_ALIVE.tokenize(message).get("uuid");
+
+        if (userManager.containsUuid(keepAliveMessageUuid)) {
+            log.info("Got KA message from UUID: {}", keepAliveMessageUuid);
+
+            userManager.lookup(keepAliveMessageUuid)
+                    .getKeepAlivePackageTimestamp()
+                    .getAndUpdate(prev -> {
+                        long millis = System.currentTimeMillis();
+
+                        return Math.max(millis, prev);
+                    });
+
+            System.out.println(userManager.lookup(keepAliveMessageUuid));
+        }
+
+        return "";
+    }
+
+    private String handleLogoff(String message) {
+        SoftReference<String> uuidToLogoff = new SoftReference<>(message.replace(Protocol.DISCONNECT, ""));
+
+        try {
+            log.info("Disconnecting: " + uuidToLogoff.get());
+            listener.disconnect(uuidToLogoff.get());
+        } catch (IOException e) {
+            log.error("Error when handling the logoff of uid: " + uuidToLogoff.get(), e);
+        }
+
+        return "Client: " + message.replace(Protocol.DISCONNECT, "") + " Disconnected.";
+    }
+
+    private String handleIncomingMessage(String message) {
+        String[] messageData = message.replace(MESSAGE_HEADER_LEFT_HALF, "")
+                .replace(MESSAGE_HEADER_RIGHT_HALF, "")
+                .split(MESSAGE_HEADER_MIDDLE_HALF);
+
+        if (messageData.length < 2) {
+            return "";
+        }
+
+        String fromUuid = messageData[0];
+        String messageText = messageData[1];
+        String nameOnlyMessage = message.replace(fromUuid, userManager.getName(fromUuid));
+
+        var matcherOfMessageText = PATTERN_OF_PRIVATE_CHATTING_MESSAGE.matcher(messageText);
+
+        // Private chatting message.
+        if (matcherOfMessageText.find()) {
+            messageText = handlePrivateChattingMessage(fromUuid, messageText, matcherOfMessageText);
+        } else {
+            handleBroadcastMessage(fromUuid, nameOnlyMessage);
+        }
+
+        message = userManager.getName(fromUuid) + ": " + messageText;
         return message;
+    }
+
+    private void handleBroadcastMessage(String fromUuid, String nameOnlyMessage) {
+        ByteBuffer bb = ByteBuffer.wrap(nameOnlyMessage.getBytes(StandardCharsets.UTF_8));
+
+        for (User u : userManager.userProfileValueSet()) {
+
+            Future<Integer> futureOfWriting;
+
+            try {
+                if (!fromUuid.equals(u.getUuid())) {
+                    bb.rewind();
+                    futureOfWriting = u.getChannel().write(bb);
+                    futureOfWriting.get();
+                }
+            } catch (InterruptedException interruptedException) {
+
+                // Propagate the interruption status.
+                Thread.currentThread().interrupt();
+
+                log.error("Got interrupted when waiting for message sent.", interruptedException);
+
+            } catch (ExecutionException executionException) {
+
+                log.error("Exception occurred when waiting for message sent.", executionException);
+            }
+        }
+    }
+
+    private String handlePrivateChattingMessage(String fromUuid, String messageText, Matcher matcherOfMessageText) {
+        var target = matcherOfMessageText.group()
+                .replace("@", "")
+                .replace("#", "");
+
+        var targetUser = UserManager.getInstance().findUuidByName(target);
+
+        if (targetUser.isPresent()) {
+
+            var um = UserManager.getInstance();
+
+            messageText = messageText.split("[#]")[1];
+
+            listener.sendCommunicationData(MESSAGE_HEADER_LEFT_HALF +
+                            um.getName(fromUuid) + " -> " + um.getName(targetUser.get()) + " (私聊)" +
+                            MESSAGE_HEADER_MIDDLE_HALF + MESSAGE_HEADER_RIGHT_HALF +
+                            messageText,
+                    targetUser.get());
+
+        } else {
+            listener.sendMessage("INVALID username", fromUuid);
+        }
+        return messageText;
     }
 }
