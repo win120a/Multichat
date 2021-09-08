@@ -18,6 +18,7 @@
 package ac.adproj.mchat.ui;
 
 import ac.adproj.mchat.protocol.ClientListener;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.swt.widgets.Display;
 
 import java.io.IOException;
@@ -26,19 +27,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import static ac.adproj.mchat.ui.CommonDialogs.errorDialog;
 import static ac.adproj.mchat.ui.CommonDialogs.inputDialog;
 
+@Slf4j
 public class ClientUI extends BaseChattingUI {
-//    private ClientListener listener;
 
-    private AtomicReference<ClientListener> listenerAtomicReference = new AtomicReference<>();
-
-//    public void initListener(byte[] ipAddress, int port, String userName) throws IOException {
-//        if (!ClientListener.checkNameDuplicates(ipAddress, userName)) {
-//            listener = new ClientListener(this, this::appendMessageDisplay, ipAddress, port, userName);
-//        } else {
-//            errorDialog("用户名重复了！");
-//            initListener(ipAddress, port, getUserName());
-//        }
-//    }
+    private final AtomicReference<ClientListener> listenerAtomicReference = new AtomicReference<>();
 
     private ClientListener getListener() {
         return listenerAtomicReference.get();
@@ -48,7 +40,7 @@ public class ClientUI extends BaseChattingUI {
         return inputDialog("请输入用户名", "必须输入用户名！");
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         ClientUI ui = new ClientUI();
 
         ui.setText(ui.getText() + " - C");
@@ -82,10 +74,11 @@ public class ClientUI extends BaseChattingUI {
 
     public void initListener(byte[] ipAddress, int port, String userName) {
         setText("连接服务器中……");
+
         ClientListener.checkNameDuplicatesAsync(ipAddress, userName, hasDuplicate -> {
             if (!hasDuplicate) {
                 try {
-                    setText("\u591A\u7AEF\u804A\u5929\u7A0B\u5E8F (TCP)");
+                    getDisplay().syncExec(() -> setText("\u591A\u7AEF\u804A\u5929\u7A0B\u5E8F (TCP)"));
 
                     listenerAtomicReference.compareAndExchange(null,
                             new ClientListener(this, this::appendMessageDisplay, ipAddress, port, userName));
@@ -113,8 +106,7 @@ public class ClientUI extends BaseChattingUI {
         try {
             getListener().disconnect();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            log.error("Error when disconnecting (initiated by user).", e);
         }
 
         send.setEnabled(false);

@@ -32,10 +32,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -64,6 +61,17 @@ public class ClientListener implements Listener {
         init(shell, uiActions, address, port, username);
     }
 
+    /**
+     * Check username duplication asynchronously.
+     *
+     * @param serverAddress The server address.
+     * @param name The username.
+     * @param completionHandler Handler of successful situations.
+     *                          If the handler argument is true,
+     *                          the username entered is reserved by others.
+     *
+     * @param failureHandler Handler of failed situations.
+     */
     public static void checkNameDuplicatesAsync(byte[] serverAddress,
                                                 String name, Consumer<Boolean> completionHandler,
                                                 Runnable failureHandler) {
@@ -72,35 +80,16 @@ public class ClientListener implements Listener {
             AtomicInteger result = new AtomicInteger(-1);
             AtomicReference<Thread> checkerThread = new AtomicReference<>(null);
 
+            CountDownLatch latch = new CountDownLatch(1);
+
             // Run the actual checker logic in another thread.
 
-            CommonThreadPool.execute(() -> {
-                checkerThread.set(Thread.currentThread());
-
-                lock.lock();
-                try {
-                    result.compareAndSet(-1, checkNameDuplicates(serverAddress, name) ? 1 : 0);
-                } catch (ClosedByInterruptException ignored) {
-                    // Timeout exceeded.
-                    // Ignore the exception.
-
-                    result.set(-1);
-
-                } catch (IOException e) {
-                    log.error("I/O exception when checking duplicate.", e);
-                    result.set(-1);
-
-                } finally {
-                    lock.unlock();
-                }
-            });
+            CommonThreadPool.execute(() -> doUsernameCheckAsync(serverAddress, name, lock, result, checkerThread, latch));
 
             try {
                 // Block the thread within specified seconds.
 
-                Thread.sleep(5000);
-
-                boolean isCheckerThreadFinished = lock.tryLock();
+                boolean isCheckerThreadFinished = latch.await(5, TimeUnit.SECONDS) && lock.tryLock();
 
                 if (!isCheckerThreadFinished || result.get() == -1) {
                     // Interrupt the checker thread.
@@ -124,6 +113,30 @@ public class ClientListener implements Listener {
                 }
             }
         });
+    }
+
+    private static void doUsernameCheckAsync(byte[] serverAddress, String name,
+                                             ReentrantLock lock, AtomicInteger result,
+                                             AtomicReference<Thread> checkerThread, CountDownLatch latch) {
+        checkerThread.set(Thread.currentThread());
+
+        lock.lock();
+        try {
+            result.compareAndSet(-1, checkNameDuplicates(serverAddress, name) ? 1 : 0);
+        } catch (ClosedByInterruptException ignored) {
+            // Timeout exceeded.
+            // Ignore the exception.
+
+            result.set(-1);
+
+        } catch (IOException e) {
+            log.error("I/O exception when checking duplicate.", e);
+            result.set(-1);
+
+        } finally {
+            lock.unlock();
+            latch.countDown();
+        }
     }
 
     public static boolean checkNameDuplicates(byte[] serverAddress, String name) throws IOException {
@@ -323,9 +336,11 @@ public class ClientListener implements Listener {
         if (isConnected()) {
             socketChannel.close();
             socketChannel = null;
-            scheduledFutureOfKeepAliveSender.cancel(false);
-            scheduledThreadPoolExecutor.shutdownNow();
         }
+
+        scheduledFutureOfKeepAliveSender.cancel(false);
+        scheduledThreadPoolExecutor.shutdownNow();
+        CommonThreadPool.shutdown();
     }
 
     @Override
