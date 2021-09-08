@@ -21,62 +21,50 @@ import ac.adproj.mchat.protocol.ClientListener;
 import org.eclipse.swt.widgets.Display;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static ac.adproj.mchat.ui.CommonDialogs.errorDialog;
 import static ac.adproj.mchat.ui.CommonDialogs.inputDialog;
 
 public class ClientUI extends BaseChattingUI {
-    private ClientListener listener;
-    
-    public void initListener(byte[] ipAddress, int port, String userName) throws IOException {
-        if (!ClientListener.checkNameDuplicates(ipAddress, userName)) {
-            listener = new ClientListener(this, this::appendMessageDisplay, ipAddress, port, userName);
-        } else {
-            errorDialog("用户名重复了！");
-            initListener(ipAddress, port, getUserName());
-        }
+//    private ClientListener listener;
+
+    private AtomicReference<ClientListener> listenerAtomicReference = new AtomicReference<>();
+
+//    public void initListener(byte[] ipAddress, int port, String userName) throws IOException {
+//        if (!ClientListener.checkNameDuplicates(ipAddress, userName)) {
+//            listener = new ClientListener(this, this::appendMessageDisplay, ipAddress, port, userName);
+//        } else {
+//            errorDialog("用户名重复了！");
+//            initListener(ipAddress, port, getUserName());
+//        }
+//    }
+
+    private ClientListener getListener() {
+        return listenerAtomicReference.get();
     }
 
-    @Override
-    protected void handleSendMessage(String text) {
-        listener.sendMessage(text);
-        appendMessageDisplay(listener.getUserName() + ": " + text);
-    }
-
-    @Override
-    protected void handleDisconnect() {
-        try {
-            listener.disconnect();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        
-        send.setEnabled(false);
-        disconnect.setEnabled(false);
-    }
-    
     private static String getUserName() {
         return inputDialog("请输入用户名", "必须输入用户名！");
     }
 
     public static void main(String[] args) throws IOException {
         ClientUI ui = new ClientUI();
-        
+
         ui.setText(ui.getText() + " - C");
-        
+
         ui.open();
-        
+
         ClientConfigurationDialog.StatusWrapper cfd = ClientConfigurationDialog.showDialog();
-        
+
         if (cfd == null) {
             System.exit(-1);
         }
-        
+
         ui.initListener(cfd.ip, cfd.port, cfd.nickname);
 
         Display d = ui.getDisplay();
-        
+
         ui.setActive();
 
         while (!ui.isDisposed()) {
@@ -84,12 +72,53 @@ public class ClientUI extends BaseChattingUI {
                 d.sleep();
             }
         }
-        
+
         try {
-            ui.listener.close();
+            ui.getListener().close();
         } catch (Exception e) {
             // ignore
         }
+    }
+
+    public void initListener(byte[] ipAddress, int port, String userName) {
+        setText("连接服务器中……");
+        ClientListener.checkNameDuplicatesAsync(ipAddress, userName, hasDuplicate -> {
+            if (!hasDuplicate) {
+                try {
+                    setText("\u591A\u7AEF\u804A\u5929\u7A0B\u5E8F (TCP)");
+
+                    listenerAtomicReference.compareAndExchange(null,
+                            new ClientListener(this, this::appendMessageDisplay, ipAddress, port, userName));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                getDisplay().syncExec(() -> errorDialog("用户名重复了！"));
+                initListener(ipAddress, port, getUserName());
+            }
+        }, () -> getDisplay().syncExec(() -> {
+            errorDialog("查询用户名的占用情况时，服务器没响应！");
+            System.exit(-1);
+        }));
+    }
+
+    @Override
+    protected void handleSendMessage(String text) {
+        getListener().sendMessage(text);
+        appendMessageDisplay(getListener().getUserName() + ": " + text);
+    }
+
+    @Override
+    protected void handleDisconnect() {
+        try {
+            getListener().disconnect();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        send.setEnabled(false);
+        disconnect.setEnabled(false);
     }
 
 }

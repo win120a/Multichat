@@ -19,6 +19,7 @@ package ac.adproj.mchat.protocol;
 
 import ac.adproj.mchat.handler.ClientMessageHandler;
 import ac.adproj.mchat.model.Protocol;
+import ac.adproj.mchat.service.CommonThreadPool;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
@@ -28,9 +29,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.CompletionHandler;
-import java.nio.channels.DatagramChannel;
+import java.nio.channels.*;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -38,6 +37,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
@@ -52,16 +53,77 @@ public class ClientListener implements Listener {
     private final ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(2,
             r -> new Thread(r, "Scheduled Thread Pooling Thread - " +
                     threadNumberOfScheduledThread.getAndIncrement()));
-
+    private final String name;
     private AsynchronousSocketChannel socketChannel;
     private String uuid;
-    private final String name;
     private ScheduledFuture<?> scheduledFutureOfKeepAliveSender;
 
     public ClientListener(Shell shell, Consumer<String> uiActions, byte[] address, int port, String username)
             throws IOException {
         this.name = username;
         init(shell, uiActions, address, port, username);
+    }
+
+    public static void checkNameDuplicatesAsync(byte[] serverAddress,
+                                                String name, Consumer<Boolean> completionHandler,
+                                                Runnable failureHandler) {
+        CommonThreadPool.execute(() -> {
+            ReentrantLock lock = new ReentrantLock(true);
+            AtomicInteger result = new AtomicInteger(-1);
+            AtomicReference<Thread> checkerThread = new AtomicReference<>(null);
+
+            // Run the actual checker logic in another thread.
+
+            CommonThreadPool.execute(() -> {
+                checkerThread.set(Thread.currentThread());
+
+                lock.lock();
+                try {
+                    result.compareAndSet(-1, checkNameDuplicates(serverAddress, name) ? 1 : 0);
+                } catch (ClosedByInterruptException ignored) {
+                    // Timeout exceeded.
+                    // Ignore the exception.
+
+                    result.set(-1);
+
+                } catch (IOException e) {
+                    log.error("I/O exception when checking duplicate.", e);
+                    result.set(-1);
+
+                } finally {
+                    lock.unlock();
+                }
+            });
+
+            try {
+                // Block the thread within specified seconds.
+
+                Thread.sleep(5000);
+
+                boolean isCheckerThreadFinished = lock.tryLock();
+
+                if (!isCheckerThreadFinished || result.get() == -1) {
+                    // Interrupt the checker thread.
+                    checkerThread.get().interrupt();
+
+                    // Timeout exceeded.
+                    failureHandler.run();
+
+                    return;
+                }
+
+                completionHandler.accept(result.get() == 1);
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+
+                Thread.currentThread().interrupt();
+
+                if (result.get() == -1) {
+                    failureHandler.run();
+                }
+            }
+        });
     }
 
     public static boolean checkNameDuplicates(byte[] serverAddress, String name) throws IOException {
@@ -88,8 +150,17 @@ public class ClientListener implements Listener {
 
             return !buffer.toString().startsWith(Protocol.USER_NAME_NOT_EXIST);
 
+        } catch (ClosedByInterruptException e) {
+
+            // Interrupted by parent thread.
+            // Propagate the situation to the parent thread.
+
+            throw e;
+
         } catch (IOException e) {
             e.printStackTrace();
+            log.error("Error when performing I/O operation.", e);
+
             throw new RuntimeException(e);
         } finally {
             dc.close();
@@ -166,7 +237,7 @@ public class ClientListener implements Listener {
 
                     @Override
                     public void failed(Throwable exc, Display display) {
-                        if (exc.getClass().getName().contains("AsynchronousCloseException")) {
+                        if (exc.getClass() == AsynchronousCloseException.class) {
                             return;
                         }
 
