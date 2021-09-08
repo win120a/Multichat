@@ -287,7 +287,7 @@ public class ClientListener implements Listener {
         }
 
         shell.getDisplay().syncExec(() ->
-                uiActions.accept("Connected to Server, UserName: " + username + ", UUID: " + uuid));
+                uiActions.accept(username + "，欢迎来到聊天室。"));
     }
 
     public String getUuid() {
