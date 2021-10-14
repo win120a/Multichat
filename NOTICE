@@ -1,0 +1,108 @@
+Notices for AC Multichat (TCP Version)
+==================================================
+
+Copyright
+---------
+All contributions are the property of the respective authors or of
+entities to which copyright has been assigned by the authors (eg. employer).
+
+Project License
+-------------------------
+This artifacts of this project are made available under the terms of:
+
+    *  GNU GENERAL PUBLIC LICENSE v. 3.0
+       https://www.gnu.org/licenses
+       SPDX-License-Identifier: GPL-3.0-or-later
+
+
+Licenses of Dependencies
+-------------------------
+
+The following dependencies are dual licensed under EPL and Apache License v. 2.
+
+    *  org.eclipse.jetty::jetty-server
+    *  org.eclipse.jetty.websocket::websocket-server
+    *  org.eclipse.jetty::jetty-webapp
+
+The following dependencies are CDDL + GPLv2 with classpath exception.
+https://glassfish.dev.java.net/nonav/public/CDDL+GPL.html
+
+    * javax.servlet::javax.servlet-api
+
+The following dependencies are licensed under EPL v. 2.
+
+    *  org.eclipse.platform::org.eclipse.jface
+    *  org.eclipse.platform::org.eclipse.swt.win32.win32.x86_64
+
+The following dependencies are licensed under MIT License.
+
+    *  org.slf4j::slf4j-api
+    *  org.slf4j::slf4j-jdk14
+
+
+License Notices of Dependencies
+-------------------------
+    * MIT License - SLF4J
+
+        Copyright (c) 2004-2017 QOS.ch
+        All rights reserved.
+
+        Permission is hereby granted, free  of charge, to any person obtaining
+        a  copy  of this  software  and  associated  documentation files  (the
+        "Software"), to  deal in  the Software without  restriction, including
+        without limitation  the rights to  use, copy, modify,  merge, publish,
+        distribute,  sublicense, and/or sell  copies of  the Software,  and to
+        permit persons to whom the Software  is furnished to do so, subject to
+        the following conditions:
+
+        The  above  copyright  notice  and  this permission  notice  shall  be
+        included in all copies or substantial portions of the Software.
+
+        THE  SOFTWARE IS  PROVIDED  "AS  IS", WITHOUT  WARRANTY  OF ANY  KIND,
+        EXPRESS OR  IMPLIED, INCLUDING  BUT NOT LIMITED  TO THE  WARRANTIES OF
+        MERCHANTABILITY,    FITNESS    FOR    A   PARTICULAR    PURPOSE    AND
+        NONINFINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+        LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+        OF CONTRACT, TORT OR OTHERWISE,  ARISING FROM, OUT OF OR IN CONNECTION
+        WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+    * APL or EPL - Jetty
+
+        ========================================================================
+        Copyright (c) 1995-2020 Mort Bay Consulting Pty Ltd and others.
+        ------------------------------------------------------------------------
+        All rights reserved. This program and the accompanying materials
+        are made available under the terms of the Eclipse Public License v1.0
+        and Apache License v2.0 which accompanies this distribution.
+
+            The Eclipse Public License is available at
+                http://www.eclipse.org/legal/epl-v10.html
+
+            The Apache License v2.0 is available at
+                http://www.opensource.org/licenses/apache2.0.php
+
+        You may elect to redistribute this code under either of these licenses.
+        ========================================================================
+
+        (The project is elected to use the Apache License.)
+
+    * EPL v. 2 - SWT & JFace
+        /*******************************************************************************
+         * Copyright (c) 2000, 2018 IBM Corporation and others.
+         *
+         * This program and the accompanying materials
+         * are made available under the terms of the Eclipse Public License 2.0
+         * which accompanies this distribution, and is available at
+         * https://www.eclipse.org/legal/epl-2.0/
+         *
+         * SPDX-License-Identifier: EPL-2.0
+         *
+         * Contributors:
+         *     IBM Corporation - initial API and implementation
+         *******************************************************************************/
+
+Location of Source code of dependencies
+-------------------------
+    * SLF4J: https://github.com/qos-ch/slf4j
+    * SWT: https://git.eclipse.org/r/platform/eclipse.platform.swt.git
+    * Jetty: https://github.com/eclipse/jetty.project

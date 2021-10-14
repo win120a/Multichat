@@ -17,6 +17,8 @@
 
 package ac.adproj.mchat.service;
 
+import ac.adproj.mchat.model.Protocol;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -24,17 +26,20 @@ import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.charset.StandardCharsets;
 
-import ac.adproj.mchat.model.Protocol;
-
 /**
  * The Runnable task of user query service.
- * 
+ *
  * @author Andy Cheung
  */
 public class UserNameQueryService implements Runnable {
     private DatagramChannel dc;
     private boolean stopSelf;
-    private UserManager userManager;
+    private final UserManager userManager;
+
+    //// Buffers ////
+
+    private final ByteBuffer byteBuffer = ByteBuffer.allocate(Protocol.BUFFER_SIZE);
+    private final StringBuilder bufferOfMessage = new StringBuilder();
 
     public UserNameQueryService() throws IOException {
         dc = DatagramChannel.open();
@@ -51,10 +56,8 @@ public class UserNameQueryService implements Runnable {
 
     @Override
     public void run() {
-        ByteBuffer bb = ByteBuffer.allocate(Protocol.BUFFER_SIZE);
-        StringBuffer buffer = new StringBuffer();
 
-        while (!stopSelf) {
+        while (!stopSelf || !Thread.interrupted()) {
 
             try {
 
@@ -62,32 +65,26 @@ public class UserNameQueryService implements Runnable {
                     reInit();
                 }
 
-                SocketAddress address = dc.receive(bb);
+                SocketAddress address = dc.receive(byteBuffer);
 
-                bb.flip();
+                byteBuffer.flip();
 
-                while (bb.hasRemaining()) {
-                    buffer.append(StandardCharsets.UTF_8.decode(bb));
+                while (byteBuffer.hasRemaining()) {
+                    bufferOfMessage.append(StandardCharsets.UTF_8.decode(byteBuffer));
                 }
 
-                String message = buffer.toString();
+                String message = bufferOfMessage.toString();
 
-                buffer.delete(0, buffer.length());
-                bb.clear();
+                // Recycle the space.
+                bufferOfMessage.delete(0, bufferOfMessage.length());
+                byteBuffer.clear();
 
-                if (message.startsWith(Protocol.CHECK_DUPLICATE_REQUEST_HEADER)) {
-                    String name = message.replace(Protocol.CHECK_DUPLICATE_REQUEST_HEADER, "");
-                    String result = userManager.containsName(name) ? Protocol.USER_NAME_DUPLICATED
-                            : Protocol.USER_NAME_NOT_EXIST;
-
-                    bb.put(result.getBytes(StandardCharsets.UTF_8));
-
-                    bb.flip();
-
-                    dc.send(bb, address);
-
-                    bb.clear();
+                if (!message.startsWith(Protocol.CHECK_DUPLICATE_REQUEST_HEADER)) {
+                    continue;
                 }
+
+                handleQueryRequest(address, message);
+
             } catch (IOException e) {
                 String name = e.getClass().getName();
                 if (name.contains("ClosedByInterruptException") || name.contains("AsynchronousCloseException")) {
@@ -99,13 +96,24 @@ public class UserNameQueryService implements Runnable {
             }
         }
 
-        if (stopSelf) {
-            try {
-                dc.close();
-            } catch (IOException e) {
-                // ignore
-            }
+        try {
+            dc.close();
+        } catch (IOException e) {
+            // ignore
         }
+    }
+
+    private void handleQueryRequest(SocketAddress address, String message) throws IOException {
+        String name = message.replace(Protocol.CHECK_DUPLICATE_REQUEST_HEADER, "");
+        String result = userManager.containsName(name) ? Protocol.USER_NAME_DUPLICATED
+                : Protocol.USER_NAME_NOT_EXIST;
+
+        byteBuffer.put(result.getBytes(StandardCharsets.UTF_8));
+        byteBuffer.flip();
+
+        dc.send(byteBuffer, address);
+
+        byteBuffer.clear();
     }
 
     /**
