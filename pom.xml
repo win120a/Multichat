@@ -30,7 +30,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jettyVersion>9.4.32.v20200930</jettyVersion>
+        <jettyVersion>9.4.51.v20230217</jettyVersion>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
     </properties>
