@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2011-2020 Andy Cheung
+    Copyright (C) 2011-2024 Andy Cheung
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -66,9 +66,9 @@ public enum MessageType {
             String[] msgData = message.replace(Protocol.MESSAGE_HEADER_LEFT_HALF, "")
                     .replace(Protocol.MESSAGE_HEADER_RIGHT_HALF, "").split(Protocol.MESSAGE_HEADER_MIDDLE_HALF);
 
-            final int vaildDataArrayLength = 2;
+            final int validDataArrayLength = 2;
 
-            if (msgData.length < vaildDataArrayLength) {
+            if (msgData.length < validDataArrayLength) {
                 return Collections.emptyMap();
             }
 
