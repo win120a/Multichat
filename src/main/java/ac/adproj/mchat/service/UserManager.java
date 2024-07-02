@@ -158,8 +158,8 @@ public class UserManager implements Iterable<User> {
      * @param name    Username
      * @param channel Remote TCP socket channel
      */
-    public void register(String uuid, String name, AsynchronousSocketChannel channel) {
-        register(new User(uuid, channel, name));
+    public boolean register(String uuid, String name, AsynchronousSocketChannel channel) {
+        return register(new User(uuid, channel, name));
     }
 
     /**
@@ -167,16 +167,19 @@ public class UserManager implements Iterable<User> {
      *
      * @param u The User object.
      */
-    public void register(User u) {
-        userProfile.put(u.getUuid(), u);
-        names.add(u.getName());
+    public boolean register(User u) {
+        if (!names.contains(u.getName())) {
+            return userProfile.put(u.getUuid(), u) == null && names.add(u.getName());
+        }
+
+        return false;
     }
 
     /**
      * Register username, but not to associate with User object. (Reserve Username,
      * Intended for WebSocket Service.)
      *
-     * @param name The user name.
+     * @param name The username.
      * @return True if registered successfully.
      */
     public boolean reserveName(String name) {
