@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2011-2020 Andy Cheung
+    Copyright (C) 2011-2024 Andy Cheung
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,7 +24,6 @@ import ac.adproj.mchat.service.UserManager;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.lang.ref.SoftReference;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.charset.StandardCharsets;
@@ -33,7 +32,9 @@ import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static ac.adproj.mchat.model.Protocol.*;
+import static ac.adproj.mchat.model.Protocol.MESSAGE_HEADER_LEFT_HALF;
+import static ac.adproj.mchat.model.Protocol.MESSAGE_HEADER_MIDDLE_HALF;
+import static ac.adproj.mchat.model.Protocol.MESSAGE_HEADER_RIGHT_HALF;
 
 /**
  * Message Handler of Server.
@@ -56,27 +57,17 @@ public class ServerMessageHandler implements Handler {
     public String handleMessage(String message, AsynchronousSocketChannel channel) {
         MessageType msgTyp = MessageType.getMessageType(message);
 
-        switch (msgTyp) {
-            case REGISTER:
-                return handleRegister(message, channel);
-
-            case DEBUG:
+        return switch (msgTyp) {
+            case REGISTER -> handleRegister(message, channel);
+            case DEBUG -> {
                 System.out.println(userManager.toString());
-                return "";
-
-            case LOGOFF:
-                return handleLogoff(message);
-
-            case INCOMING_MESSAGE:
-                return handleIncomingMessage(message);
-
-            case KEEP_ALIVE:
-                return handleKeepAlive(message);
-
-            case UNKNOWN:
-            default:
-                return message;
-        }
+                yield "";
+            }
+            case LOGOFF -> handleLogoff(message);
+            case INCOMING_MESSAGE -> handleIncomingMessage(message);
+            case KEEP_ALIVE -> handleKeepAlive(message);
+            default -> message;
+        };
     }
 
     private String handleRegister(String message, AsynchronousSocketChannel channel) {
@@ -115,13 +106,13 @@ public class ServerMessageHandler implements Handler {
     }
 
     private String handleLogoff(String message) {
-        SoftReference<String> uuidToLogoff = new SoftReference<>(message.replace(Protocol.DISCONNECT, ""));
+        String uuidToLogoff = message.replace(Protocol.DISCONNECT, "");
 
         try {
-            log.info("Disconnecting: " + uuidToLogoff.get());
-            listener.disconnect(uuidToLogoff.get());
+            log.info("Disconnecting: {}", uuidToLogoff);
+            listener.disconnect(uuidToLogoff);
         } catch (IOException e) {
-            log.error("Error when handling the logoff of uid: " + uuidToLogoff.get(), e);
+            log.error("Error when handling the logoff of uid: {}", uuidToLogoff, e);
         }
 
         return "Client: " + message.replace(Protocol.DISCONNECT, "") + " Disconnected.";
