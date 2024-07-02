@@ -35,9 +35,11 @@ public class CommonThreadPool {
      */
     private static final byte[] mutex = new byte[1];
     private static int threadNumber = 0;
-    private static BlockingQueue<Runnable> bq = new LinkedBlockingQueue<>(16);
+
+    private static final BlockingQueue<Runnable> runnableLinkedBlockingQueue = new LinkedBlockingQueue<>(16);
     private static String comment = "";
-    private static ThreadFactory threadFactory = r -> {
+
+    private static final ThreadFactory threadFactory = r -> {
         synchronized (mutex) {
             threadNumber++;
 
@@ -51,7 +53,7 @@ public class CommonThreadPool {
         }
     };
 
-    private static ExecutorService threadPool = new ThreadPoolExecutor(3, 8, 1, TimeUnit.MINUTES, bq, threadFactory);
+    static ExecutorService threadPool = new ThreadPoolExecutor(3, 8, 1, TimeUnit.MINUTES, runnableLinkedBlockingQueue, threadFactory);
 
     /**
      * Commit task to the thread pool.
