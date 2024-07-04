@@ -30,7 +30,7 @@ import static ac.adproj.mchat.handler.MessageType.getMessageType;
  * @author Andy Cheung
  */
 public class ClientMessageHandler implements Handler {
-    private Consumer<Void> forceLogoffCallback;
+    private final Consumer<Void> forceLogoffCallback;
 
     /**
      * Get instance.
