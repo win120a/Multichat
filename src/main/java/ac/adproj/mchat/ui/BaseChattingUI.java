@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2011-2020 Andy Cheung
+    Copyright (C) 2011-2024 Andy Cheung
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -58,13 +58,13 @@ public abstract class BaseChattingUI extends Shell {
      * Create the shell.
      * @param display
      */
-    public BaseChattingUI(Display display) {
+    protected BaseChattingUI(Display display) {
         super(display, SWT.SHELL_TRIM);
         setLayout(new GridLayout(4, false));
         createContents();
     }
     
-    public BaseChattingUI() {
+    protected BaseChattingUI() {
         this(new Display());
     }
 
