@@ -51,7 +51,6 @@ public class ServerListener implements Listener {
     private static ServerListener instance;
     private AsynchronousServerSocketChannel serverSocketChannel = null;
     private ExecutorService threadPool;
-    private UserManager userManager;
     private UserNameQueryService usernameQueryService;
     private AtomicInteger threadNumber = new AtomicInteger(0);
 
@@ -64,7 +63,6 @@ public class ServerListener implements Listener {
     private ScheduledFuture scheduledFutureOfHeartbeatDetectingService;
 
     private ServerListener() throws IOException {
-        this.userManager = UserManager.getInstance();
         init();
     }
 
@@ -165,14 +163,14 @@ public class ServerListener implements Listener {
 
                         SoftReference<User> sr = null;
 
-                        for (User user : userManager.userProfileValueSet()) {
+                        for (User user : UserManager.getInstance().userProfileValueSet()) {
                             if (user.getChannel().equals(channel)) {
                                 sr = new SoftReference<>(user);
                             }
                         }
 
                         if (sr != null) {
-                            userManager.deleteUserProfile(sr.get().getUuid());
+                            UserManager.getInstance().deleteUserProfile(sr.get().getUuid());
 
                             sr.clear();
                             sr = null;
@@ -194,7 +192,7 @@ public class ServerListener implements Listener {
 
     @Override
     public boolean isConnected() {
-        return !userManager.isEmptyUserProfile();
+        return !UserManager.getInstance().isEmptyUserProfile();
     }
 
     @Override
@@ -202,7 +200,7 @@ public class ServerListener implements Listener {
         final ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
 
         if (uuid.equals(Protocol.BROADCAST_MESSAGE_UUID)) {
-            for (User u : userManager.userProfileValueSet()) {
+            for (User u : UserManager.getInstance().userProfileValueSet()) {
                 try {
                     bb.rewind();
 
@@ -216,7 +214,7 @@ public class ServerListener implements Listener {
             }
         } else {
             try {
-                userManager.lookup(uuid).getChannel().write(bb).get();
+                UserManager.getInstance().lookup(uuid).getChannel().write(bb).get();
             } catch (InterruptedException | ExecutionException e) {
                 log.error("Got error when sending message.", e);
                 e.printStackTrace();
@@ -231,12 +229,12 @@ public class ServerListener implements Listener {
     }
 
     public void disconnect(String uuid) throws IOException {
-        userManager.lookup(uuid).getChannel().close();
-        userManager.deleteUserProfile(uuid);
+        UserManager.getInstance().lookup(uuid).getChannel().close();
+        UserManager.getInstance().deleteUserProfile(uuid);
     }
 
     public void disconnectAll() {
-        userManager.userProfileValueSet().forEach(value -> {
+        UserManager.getInstance().userProfileValueSet().forEach(value -> {
             try {
                 final ByteBuffer bb = ByteBuffer
                         .wrap((Protocol.DISCONNECT + "SERVER").getBytes(StandardCharsets.UTF_8));
@@ -248,14 +246,14 @@ public class ServerListener implements Listener {
             }
         });
 
-        userManager.clearAllProfiles();
+        UserManager.getInstance().clearAllProfiles();
     }
 
     @Override
     public void close() throws Exception {
         usernameQueryService.stopSelf();
         threadPool.shutdownNow();
-        userManager.clearAllProfiles();
+        UserManager.getInstance().clearAllProfiles();
         serverSocketChannel.close();
 
         scheduledFutureOfHeartbeatDetectingService.cancel(false);
