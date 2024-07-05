@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
@@ -182,5 +183,35 @@ class ServerMessageHandlerTest {
         var secondChannel = userManager.lookup(secondUserUUID).getChannel();
         verify(secondChannel, times(0)).write(any());
         verify(mockChannel).write(any());
+    }
+
+    @Test
+    void handleIncomingRegisteringMessage() {
+        var secondUserUUID = UUID.randomUUID().toString();
+        var secondUserName = "TEST2" + UUID.randomUUID();
+
+        // Simulates the another user wants to register.
+        var message = Protocol.CONNECTING_GREET_LEFT_HALF + secondUserUUID +
+                Protocol.CONNECTING_GREET_MIDDLE_HALF + secondUserName + Protocol.CONNECTING_GREET_RIGHT_HALF;
+
+        handler.handleMessage(message, mockChannel);
+
+        assertTrue(userManager.containsUuid(secondUserUUID));
+        assertTrue(userManager.containsName(secondUserName));
+    }
+
+    @Test
+    void handleIncomingKeepAliveMessage() {
+        // Clear status.
+        userManager.lookup(uuid).getKeepAlivePackageTimestamp().set(0);
+
+        // Simulates the keepalive message.
+        var message = Protocol.KEEP_ALIVE_HEADER + uuid;
+        handler.handleMessage(message, mockChannel);
+
+        var timeSpanDifference = System.currentTimeMillis() - userManager.lookup(uuid).getKeepAlivePackageTimestamp().get();
+
+        // Make sure the difference of the timestamp doesn't go too far.
+        assertTrue(timeSpanDifference < 1500);
     }
 }
